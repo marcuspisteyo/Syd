@@ -19,10 +19,13 @@
   }
 
   // Override fullscreen script background changes
-  setTimeout(() => {
-    document.body.style.background = '#ffffff';
-    el.style.background = '#ffffff';
-    const webchat = document.querySelector('.bpWebchat');
-    if (webchat) webchat.style.background = '#ffffff';
-  }, 0);
-})();
+setTimeout(() => {
+  document.body.style.background = '#ffffff';
+  el.style.background = '#ffffff';
+
+  const iframe = document.querySelector('iframe');
+  if (iframe && iframe.contentDocument) {
+    iframe.contentDocument.body.style.background = '#ffffff';
+    iframe.contentDocument.documentElement.style.background = '#ffffff';
+  }
+}, 500);
