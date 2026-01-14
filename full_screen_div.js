@@ -1,7 +1,7 @@
 (function () {
   const style = document.createElement('style');
   style.textContent = `
-    html, body, #bp-embedded-webchat {
+    html, body, #bp-embedded-webchat, .bpWebchat {
       margin: 0;
       width: 100%;
       height: 100%;
@@ -22,5 +22,7 @@
   setTimeout(() => {
     document.body.style.background = '#ffffff';
     el.style.background = '#ffffff';
+    const webchat = document.querySelector('.bpWebchat');
+    if (webchat) webchat.style.background = '#ffffff';
   }, 0);
 })();
