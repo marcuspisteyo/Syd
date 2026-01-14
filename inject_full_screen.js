@@ -277,13 +277,22 @@ In order to be iterable, non-array objects must have a [Symbol.iterator]() metho
 
 .bpWebchat {
   width: 100%;
-  height: 100dvh;
+  height: 100%;
   position: fixed;
+  background-color: #ffffff;
   bottom: 0;
   right: 0;
   z-index: 9999;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
+
+@media (min-width: 1200px) {
+  .bpWebchat {
+    height: 100%;
+    background-color: #ffffff;
+  }
+}
+
 @media (min-width: 768px) {
   .bpWebchat {
     width: 400px;
