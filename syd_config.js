@@ -2,7 +2,7 @@ window.botpress.init({
   "botId": "ffcd08f1-cec3-4e16-a80f-48a1298a2728",
   "configuration": {
     "version": "v2",
-    "composerPlaceholder": "We support ðŸ‡ºðŸ‡¸ ðŸ‡ªðŸ‡¸ ðŸ‡¨ðŸ‡³ ðŸ‡«ðŸ‡· ðŸ‡®ðŸ‡³, just type",
+    "composerPlaceholder": "Ask Syd...",
     "botName": "Syd from Pisteyo",
     "botAvatar": "https://files.bpcontent.cloud/2025/04/08/21/20250408213406-XSILIIY6.jpeg",
     "botDescription": "Turning conversations into strategy",
