@@ -4,21 +4,25 @@
     // Create and inject styles
     const style = document.createElement('style');
     style.textContent = `
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-        }
+      html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #ffffff;
+    }
 
-        #bp-embedded-webchat {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-sizing: border-box;
-        }
-    `;
+    #bp-embedded-webchat {
+      width: 100%;
+      height: 100%;
+      min-height: 600px;
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+      box-sizing: border-box;
+      background: #ffffff;
+    }
+  `;
     document.head.appendChild(style);
     
     // Create webchat container
