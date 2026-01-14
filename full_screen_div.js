@@ -1,31 +1,30 @@
-(function () {
-  const style = document.createElement('style');
-  style.textContent = `
-    html, body, #bp-embedded-webchat, .bpWebchat {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      background: #ffffff !important;
-      opacity: 1 !important;
-    }
-  `;
-  document.head.appendChild(style);
+(function() {
+    'use strict';
+    
+    // Create and inject styles
+    const style = document.createElement('style');
+    style.textContent = `
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
 
-  let el = document.getElementById('bp-embedded-webchat');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'bp-embedded-webchat';
-    document.body.appendChild(el);
-  }
-
-  // Override fullscreen script background changes
-setTimeout(() => {
-  document.body.style.background = '#ffffff';
-  el.style.background = '#ffffff';
-
-  const iframe = document.querySelector('iframe');
-  if (iframe && iframe.contentDocument) {
-    iframe.contentDocument.body.style.background = '#ffffff';
-    iframe.contentDocument.documentElement.style.background = '#ffffff';
-  }
-}, 500);
+        #bp-embedded-webchat {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Create webchat container
+    const webchatDiv = document.createElement('div');
+    webchatDiv.id = 'bp-embedded-webchat';
+    document.body.appendChild(webchatDiv);
+    
+    console.log('Webchat container and styles injected');
+})();
