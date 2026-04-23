@@ -1,16 +1,725 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
+  <title>Syd — Pisteyo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --red:        #FF5758;
+      --red-dim:    rgba(255, 87, 88, 0.15);
+      --red-glow:   rgba(255, 87, 88, 0.22);
+      --navy:       #0a0d1a;
+      --navy-2:     #0d1120;
+      --navy-3:     #111526;
+      --navy-4:     #161b2e;
+      --navy-5:     #1c2238;
+      --border:     rgba(255,255,255,0.06);
+      --border-red: rgba(255,87,88,0.25);
+      --text:       #eef0f6;
+      --text-muted: #7b82a0;
+      --text-dim:   #454c66;
+      --sans: 'Montserrat', sans-serif;
+      --serif: 'Montserrat', sans-serif;
+    }
 
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--navy);
+      color: var(--text);
+      font-family: var(--sans);
+      overflow: hidden;
+    }
+
+    /* ── BACKGROUND ─────────────────────────────────── */
+    .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+
+    /* Video layer */
+    .bg-video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      opacity: 0.18;
+      mix-blend-mode: lighten;
+    }
+
+    .bg-gradient {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 50% -10%,  rgba(180,30,40,0.55) 0%, transparent 65%),
+        radial-gradient(ellipse 50% 40% at 100% 100%, rgba(100,20,40,0.3)  0%, transparent 60%),
+        radial-gradient(ellipse 80% 60% at 0%   80%,  rgba(10,18,50,0.9)   0%, transparent 70%),
+        linear-gradient(175deg, #12071a 0%, #0a0d1a 40%, #060a16 100%);
+    }
+
+    /* Enhanced grid — more visible, futuristic feel */
+    .bg-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+      background-size: 36px 36px;
+      /* Full coverage — no mask fade-out */
+      mask-image: radial-gradient(ellipse 110% 100% at 50% 50%, black 30%, rgba(0,0,0,0.4) 80%, transparent 100%);
+    }
+
+    /* Subtle grid accent dots at intersections */
+    .bg-grid-dots {
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-size: 36px 36px;
+      background-position: -1px -1px;
+      mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, black 20%, transparent 75%);
+    }
+
+    .bg-streak {
+      position: absolute;
+      top: 28%; left: -10%; right: -10%; height: 1px;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(255,87,88,0) 20%,
+        rgba(255,87,88,0.35) 45%, rgba(255,160,80,0.5) 50%,
+        rgba(255,87,88,0.35) 55%, rgba(255,87,88,0) 80%, transparent 100%);
+      filter: blur(0.5px);
+      animation: streakPulse 6s ease-in-out infinite;
+    }
+    .bg-streak-2 {
+      top: 29%; height: 3px;
+      background: linear-gradient(90deg,
+        transparent 0%, rgba(255,87,88,0) 25%,
+        rgba(255,87,88,0.08) 50%, rgba(255,87,88,0) 75%, transparent 100%);
+      filter: blur(2px);
+      animation: streakPulse 6s 0.1s ease-in-out infinite;
+    }
+    @keyframes streakPulse { 0%,100%{opacity:.6;} 50%{opacity:1;} }
+
+    /* ── APP ────────────────────────────────────────── */
+    #app {
+      position: relative; z-index: 1;
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+    }
+
+    /* ── OPENING CARD ───────────────────────────────── */
+    #opening-card {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 1.5rem 1.25rem 1.75rem;
+      animation: fadeUp 0.7s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    #opening-card.hidden {
+      animation: fadeOut 0.3s ease both;
+      pointer-events: none;
+    }
+    @keyframes fadeUp  { from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);} }
+    @keyframes fadeOut { from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-10px);} }
+
+    .syd-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid rgba(255,87,88,0.35);
+      box-shadow: 0 0 0 4px rgba(255,87,88,0.07), 0 0 30px rgba(255,87,88,0.25), 0 8px 24px rgba(0,0,0,0.5);
+      margin-bottom: 1.1rem;
+      animation: fadeUp 0.7s 0.08s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .syd-avatar-fallback {
+      display: none; width: 72px; height: 72px; border-radius: 50%;
+      background: linear-gradient(135deg,#c0202a,#1a1f3a);
+      border: 1.5px solid rgba(255,87,88,0.35);
+      box-shadow: 0 0 0 4px rgba(255,87,88,0.07), 0 0 30px rgba(255,87,88,0.25);
+      align-items: center; justify-content: center;
+      font-family: var(--serif); font-size: 1.6rem; color: white;
+      margin-bottom: 1.1rem;
+      animation: fadeUp 0.7s 0.08s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .syd-headline {
+      font-family: var(--serif); font-size: 1.2rem;
+      color: var(--text); text-align: center;
+      line-height: 1.35; max-width: 280px; margin-bottom: 0.5rem;
+      animation: fadeUp 0.7s 0.18s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .syd-subline {
+      font-size: 0.73rem; font-weight: 300;
+      color: var(--text-muted); text-align: center;
+      line-height: 1.6; max-width: 250px; margin-bottom: 1.6rem;
+      animation: fadeUp 0.7s 0.22s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .syd-divider {
+      width: 40px; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--red), transparent);
+      margin-bottom: 1.4rem;
+      animation: fadeUp 0.7s 0.25s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    /* ── THREE COLUMN CARDS — GLASS ─────────────────── */
+    .syd-paths {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.55rem;
+      width: 100%; max-width: 340px;
+      animation: fadeUp 0.7s 0.3s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    .path-card {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0.5rem; padding: 0.9rem 0.45rem 0.85rem;
+      /* Glass effect */
+      background: linear-gradient(
+        135deg,
+        rgba(255,255,255,0.07) 0%,
+        rgba(255,255,255,0.03) 50%,
+        rgba(255,255,255,0.01) 100%
+      );
+      border: 1px solid rgba(255,255,255,0.12);
+      border-top: 1px solid rgba(255,255,255,0.2);
+      border-left: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px; cursor: pointer;
+      font-family: var(--sans); color: var(--text);
+      text-align: center; position: relative; overflow: hidden;
+      -webkit-backdrop-filter: blur(16px) saturate(1.4);
+      backdrop-filter: blur(16px) saturate(1.4);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        inset 0 -1px 0 rgba(0,0,0,0.15),
+        0 4px 16px rgba(0,0,0,0.3),
+        0 1px 3px rgba(0,0,0,0.2);
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    /* Glass inner sheen */
+    .path-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 45%;
+      background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+      border-radius: 12px 12px 0 0;
+      pointer-events: none;
+    }
+
+    /* Hover tint from red */
+    .path-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(160deg, rgba(255,87,88,0.12) 0%, transparent 60%);
+      opacity: 0; transition: opacity 0.25s;
+      border-radius: inherit;
+    }
+
+    .path-card:hover {
+      border-color: rgba(255,87,88,0.4);
+      border-top-color: rgba(255,87,88,0.5);
+      transform: translateY(-2px);
+      background: linear-gradient(
+        135deg,
+        rgba(255,255,255,0.1) 0%,
+        rgba(255,87,88,0.05) 50%,
+        rgba(255,255,255,0.02) 100%
+      );
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.18),
+        inset 0 -1px 0 rgba(0,0,0,0.15),
+        0 8px 28px rgba(255,87,88,0.18),
+        0 2px 8px rgba(0,0,0,0.3),
+        0 0 0 1px rgba(255,87,88,0.12);
+    }
+    .path-card:hover::before { opacity: 1; }
+    .path-card:active { transform: translateY(0); }
+
+    .path-label { font-size: 0.67rem; font-weight: 500; line-height: 1.3; position: relative; z-index: 1; }
+    .path-arrow { font-size: 0.65rem; color: var(--text-dim); position: relative; z-index: 1; transition: color 0.2s, transform 0.2s; }
+    .path-card:hover .path-arrow { color: var(--red); transform: translateY(1px); }
+
+    /* ── CHAT VIEW ──────────────────────────────────── */
+    #chat-view { flex: 1; display: none; flex-direction: column; height: 100%; }
+    #chat-view.visible { display: flex; animation: fadeUp 0.4s ease both; }
+
+    .chat-header {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.7rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,13,26,0.85);
+      -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+      flex-shrink: 0;
+    }
+    .chat-hdr-ava {
+      width: 28px; height: 28px; border-radius: 50%;
+      object-fit: cover; border: 1px solid var(--border-red); flex-shrink: 0;
+    }
+    .chat-hdr-info { flex: 1; min-width: 0; }
+    .chat-hdr-name  { font-size: 0.75rem; font-weight: 600; color: var(--text); line-height: 1.2; }
+    .chat-hdr-status { font-size: 0.62rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.3rem; }
+    .status-dot { width: 5px; height: 5px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 5px rgba(74,222,128,0.6); flex-shrink: 0; }
+    .path-tag {
+      font-size: 0.58rem; font-weight: 500; color: var(--red);
+      background: var(--red-dim); border: 1px solid var(--border-red);
+      border-radius: 20px; padding: 0.18rem 0.5rem;
+      white-space: nowrap; max-width: 100px;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .chat-messages {
+      flex: 1; overflow-y: auto;
+      padding: 0.85rem 0.75rem;
+      display: flex; flex-direction: column; gap: 0.65rem;
+      scroll-behavior: smooth;
+    }
+    .chat-messages::-webkit-scrollbar { width: 3px; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--navy-5); border-radius: 3px; }
+
+    .message {
+      display: flex; gap: 0.45rem;
+      animation: msgIn 0.28s ease both; max-width: 90%;
+    }
+    @keyframes msgIn { from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);} }
+    .message.user { align-self: flex-end; flex-direction: row-reverse; }
+    .message.bot  { align-self: flex-start; }
+
+    .msg-ava {
+      width: 22px; height: 22px; border-radius: 50%;
+      flex-shrink: 0; margin-top: 3px;
+      object-fit: cover; border: 1px solid var(--border-red);
+    }
+    .msg-bubble { padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 0.77rem; line-height: 1.55; word-break: break-word; }
+    .message.bot  .msg-bubble { background: var(--navy-4); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 3px; }
+    .message.user .msg-bubble { background: linear-gradient(135deg,#e04040,var(--red)); color: white; border-bottom-right-radius: 3px; }
+
+    .typing-wrap { display: flex; align-items: center; gap: 0.45rem; align-self: flex-start; animation: msgIn 0.28s ease both; }
+    .typing-dots { display: flex; gap: 3px; background: var(--navy-4); border: 1px solid var(--border); padding: 0.55rem 0.7rem; border-radius: 12px; border-bottom-left-radius: 3px; }
+    .typing-dots span { width: 4px; height: 4px; border-radius: 50%; background: var(--text-dim); animation: dot 1.3s ease-in-out infinite; }
+    .typing-dots span:nth-child(2) { animation-delay: .18s; }
+    .typing-dots span:nth-child(3) { animation-delay: .36s; }
+    @keyframes dot { 0%,60%,100%{opacity:.25;transform:translateY(0);}30%{opacity:1;transform:translateY(-3px);} }
+
+    .chat-composer {
+      display: flex; align-items: flex-end; gap: 0.45rem;
+      padding: 0.6rem 0.7rem;
+      border-top: 1px solid var(--border);
+      background: rgba(10,13,26,0.9); flex-shrink: 0;
+    }
+    .composer-input {
+      flex: 1; background: var(--navy-4); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.55rem 0.8rem;
+      font-family: var(--sans); font-size: 0.76rem; color: var(--text);
+      outline: none; resize: none; min-height: 34px; max-height: 76px;
+      line-height: 1.45; transition: border-color 0.2s;
+    }
+    .composer-input::placeholder { color: var(--text-dim); }
+    .composer-input:focus { border-color: var(--border-red); }
+
+    .composer-btn { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all 0.18s; }
+    .send-btn { background: linear-gradient(135deg,#e04040,var(--red)); color: white; }
+    .send-btn:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 3px 12px rgba(255,87,88,0.35); }
+    .send-btn:disabled { background: var(--navy-5); color: var(--text-dim); cursor: not-allowed; }
+    .mic-btn { background: var(--navy-4); border: 1px solid var(--border); color: var(--text-muted); }
+    .mic-btn:hover { border-color: var(--border-red); color: var(--red); }
+    .mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); animation: micPulse 1s ease-in-out infinite; }
+    @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,87,88,.3);}50%{box-shadow:0 0 0 4px rgba(255,87,88,.1);} }
+
+    .toast {
+      position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
+      background: #1a0d0d; border: 1px solid rgba(255,87,88,0.3); color: var(--red);
+      font-size: 0.7rem; padding: 0.45rem 0.9rem; border-radius: 6px;
+      z-index: 200; animation: fadeUp 0.3s ease both; white-space: nowrap;
+    }
+  </style>
+</head>
 <body>
-  <script src=https://pisteyo-ops.github.io/Syd/inject_full_screen.js></script>
-  <script src=https://pisteyo-ops.github.io/Syd/syd_config.js defer></script>
-  <script src=https://pisteyo-ops.github.io/Syd/full_screen_div.js defer></script>
+
+<div class="bg">
+  <!-- WebM video background — replace src with your hosted video URL -->
+  <video class="bg-video" autoplay loop muted playsinline>
+    <source src="syd-aurora-512-4s.webm" type="video/webm">
+  </video>
+  <div class="bg-gradient"></div>
+  <div class="bg-grid"></div>
+  <div class="bg-grid-dots"></div>
+  <div class="bg-streak"></div>
+  <div class="bg-streak bg-streak-2"></div>
+</div>
+
+<div id="app">
+
+  <!-- OPENING CARD -->
+  <div id="opening-card">
+    <!-- Replace SYD_LOGO_URL with your hosted image URL -->
+    <img class="syd-avatar" id="syd-logo" src="SYD_LOGO_URL" alt="Syd"
+      onerror="this.style.display='none';document.getElementById('syd-ava-fb').style.display='flex';">
+    <div class="syd-avatar-fallback" id="syd-ava-fb" style="display:flex;">S</div>
+
+    <h1 class="syd-headline">Get a custom consulting asset built around your business.</h1>
+    <p class="syd-subline">Tell us where you are. We'll show you what's possible.</p>
+    <div class="syd-divider"></div>
+
+    <div class="syd-paths">
+      <button class="path-card"
+        data-path="AI Industry Intelligence Brief"
+        data-message="I'd like an AI Industry Intelligence Brief for my business.">
+        <span class="path-label">AI Industry Intelligence Brief</span>
+        <span class="path-arrow">↓</span>
+      </button>
+      <button class="path-card"
+        data-path="AI App Prototype"
+        data-message="I'd like to explore building an AI App Prototype for my business.">
+        <span class="path-label">AI App Prototype</span>
+        <span class="path-arrow">↓</span>
+      </button>
+      <button class="path-card"
+        data-path="Organizational ROI Analysis"
+        data-message="I'd like an Organizational ROI Analysis for my business.">
+        <span class="path-label">Organizational ROI Analysis</span>
+        <span class="path-arrow">↓</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CHAT VIEW -->
+  <div id="chat-view">
+    <div class="chat-header">
+      <img class="chat-hdr-ava" id="chat-logo" alt="Syd"
+        onerror="this.style.background='linear-gradient(135deg,#c0202a,#1a1f3a)';this.removeAttribute('src');">
+      <div class="chat-hdr-info">
+        <div class="chat-hdr-name">Syd — Pisteyo</div>
+        <div class="chat-hdr-status"><div class="status-dot"></div><span>Online</span></div>
+      </div>
+      <div class="path-tag" id="path-tag"></div>
+    </div>
+
+    <div class="chat-messages" id="messages"></div>
+
+    <div class="chat-composer">
+      <button class="composer-btn mic-btn" id="mic-btn" title="Voice input">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+          <line x1="12" y1="19" x2="12" y2="23"></line>
+          <line x1="8" y1="23" x2="16" y2="23"></line>
+        </svg>
+      </button>
+      <textarea class="composer-input" id="composer" placeholder="Ask Syd..." rows="1"></textarea>
+      <button class="composer-btn send-btn" id="send-btn" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  // ── CONFIG ───────────────────────────────────────────
+  const WEBHOOK_ID = '4d37eadf-291a-4932-b267-0ce88481f2f4';
+  const BASE = `https://chat.botpress.cloud/${WEBHOOK_ID}`;
+
+  // ── STATE ────────────────────────────────────────────
+  let userKey = null, convId = null;
+  let isConnected = false, isWaiting = false;
+  let pollTimer = null, lastMsgId = null;
+  let sseActive = false;
+
+  const openingCard = document.getElementById('opening-card');
+  const chatView    = document.getElementById('chat-view');
+  const messagesEl  = document.getElementById('messages');
+  const composer    = document.getElementById('composer');
+  const sendBtn     = document.getElementById('send-btn');
+  const micBtn      = document.getElementById('mic-btn');
+  const pathTag     = document.getElementById('path-tag');
+
+  // ── CORE API CALL ────────────────────────────────────
+  async function api(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (userKey) headers['x-user-key'] = userKey;
+    let res;
+    try {
+      res = await fetch(`${BASE}${path}`, {
+        method,
+        headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+    } catch (networkErr) {
+      // Network-level failure (DNS, CORS preflight blocked, offline)
+      console.error('[Syd] Network error on', method, path, networkErr);
+      throw new Error('NETWORK');
+    }
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.error('[Syd] API error', res.status, path, body);
+      throw new Error(`HTTP_${res.status}`);
+    }
+    return res.json();
+  }
+
+  // ── SESSION INIT ─────────────────────────────────────
+  async function initSession() {
+    try {
+      // Step 1: create/resume user
+      const u = await api('POST', '/users', {});
+      userKey = u.key;
+      console.log('[Syd] User key obtained');
+
+      // Step 2: open conversation
+      const c = await api('POST', '/conversations', {});
+      convId = c.conversation.id;
+      console.log('[Syd] Conversation ID:', convId);
+
+      isConnected = true;
+
+      // Step 3: try SSE first, fall back to polling
+      listenSSE();
+    } catch (e) {
+      console.error('[Syd] initSession failed:', e.message);
+      if (e.message === 'NETWORK') {
+        showToast('Could not reach Syd — check your internet connection.');
+      } else if (e.message === 'HTTP_403' || e.message === 'HTTP_401') {
+        showToast('Bot access denied — check Botpress allowed origins.');
+      } else {
+        showToast(`Connection failed (${e.message}) — please refresh.`);
+      }
+    }
+  }
+
+  // ── SSE LISTENER ─────────────────────────────────────
+  async function listenSSE() {
+    try {
+      const res = await fetch(`${BASE}/conversations/${convId}/listen`, {
+        headers: { 'x-user-key': userKey, 'Accept': 'text/event-stream' }
+      });
+      if (!res.ok) throw new Error('SSE failed');
+      sseActive = true;
+      console.log('[Syd] SSE connected');
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop();
+        for (const line of lines) {
+          if (line.startsWith('data: ')) onSSEEvent(line.slice(6));
+        }
+      }
+    } catch (e) {
+      console.warn('[Syd] SSE unavailable, falling back to polling:', e.message);
+      sseActive = false;
+      startPolling();
+    }
+  }
+
+  function onSSEEvent(raw) {
+    try {
+      const ev = JSON.parse(raw);
+      if (
+        ev.type === 'message_created' &&
+        ev.data?.message?.direction === 'incoming' &&
+        ev.data?.message?.payload?.type === 'text'
+      ) {
+        const msgId = ev.data.message.id;
+        if (msgId === lastMsgId) return; // dedupe
+        lastMsgId = msgId;
+        receiveBotMsg(ev.data.message.payload.text);
+      }
+    } catch (_) {}
+  }
+
+  // ── POLLING FALLBACK ─────────────────────────────────
+  function startPolling() {
+    if (pollTimer) return;
+    console.log('[Syd] Polling started');
+    pollTimer = setInterval(async () => {
+      if (!isWaiting || !convId) return;
+      try {
+        const d = await api('GET', `/conversations/${convId}/messages`);
+        const msgs = (d.messages || [])
+          .filter(m =>
+            m.direction === 'incoming' &&
+            m.payload?.type === 'text' &&
+            m.id !== lastMsgId
+          )
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        if (msgs.length) {
+          const latest = msgs[msgs.length - 1];
+          lastMsgId = latest.id;
+          receiveBotMsg(latest.payload.text);
+        }
+      } catch (e) {
+        console.warn('[Syd] Poll error:', e.message);
+      }
+    }, 1500);
+  }
+
+  function receiveBotMsg(text) {
+    removeTyping();
+    appendMsg('bot', text);
+    isWaiting = false;
+    updateSend();
+  }
+
+  // ── PATH CARD CLICK ──────────────────────────────────
+  document.querySelectorAll('.path-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      // Animate out the opening card
+      openingCard.classList.add('hidden');
+      setTimeout(() => {
+        openingCard.style.display = 'none';
+        chatView.classList.add('visible');
+        pathTag.textContent = card.dataset.path;
+        composer.focus();
+      }, 300);
+
+      // Init session, then fire the path trigger message silently
+      await initSession();
+      if (isConnected) {
+        sendMsg(card.dataset.message, false);
+      }
+    });
+  });
+
+  // ── SEND MESSAGE ─────────────────────────────────────
+  async function sendMsg(text, showBubble = true) {
+    if (!text.trim() || isWaiting) return;
+    if (showBubble) {
+      appendMsg('user', text);
+      composer.value = '';
+      composer.style.height = 'auto';
+    }
+    showTyping();
+    isWaiting = true;
+    updateSend();
+
+    // If SSE isn't active, make sure polling is running
+    if (!sseActive) startPolling();
+
+    try {
+      await api('POST', `/conversations/${convId}/messages`, {
+        payload: { type: 'text', text }
+      });
+      console.log('[Syd] Message sent:', text.slice(0, 40));
+    } catch (e) {
+      removeTyping();
+      isWaiting = false;
+      updateSend();
+      showToast('Send failed — try again.');
+    }
+  }
+
+  function getLogoSrc() {
+    const img = document.getElementById('syd-logo');
+    return img && img.complete && img.naturalWidth > 0 ? img.src : '';
+  }
+
+  function appendMsg(role, text) {
+    const logoSrc = getLogoSrc();
+    const ava = role === 'bot'
+      ? `<img class="msg-ava" src="${logoSrc}" alt="Syd"
+           onerror="this.style.background='linear-gradient(135deg,#c0202a,#1a1f3a)';this.removeAttribute('src');">`
+      : '';
+    const el = document.createElement('div');
+    el.className = `message ${role}`;
+    el.innerHTML = `${ava}<div class="msg-bubble">${fmt(text)}</div>`;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function fmt(t) {
+    return t
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\n/g,'<br>');
+  }
+
+  function showTyping() {
+    removeTyping();
+    const logoSrc = getLogoSrc();
+    const el = document.createElement('div');
+    el.className = 'typing-wrap'; el.id = 'typing';
+    el.innerHTML = `
+      <img class="msg-ava" src="${logoSrc}" alt="Syd"
+        onerror="this.style.background='linear-gradient(135deg,#c0202a,#1a1f3a)';this.removeAttribute('src');">
+      <div class="typing-dots"><span></span><span></span><span></span></div>`;
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function removeTyping() { document.getElementById('typing')?.remove(); }
+
+  function updateSend() {
+    sendBtn.disabled = composer.value.trim() === '' || isWaiting;
+  }
+
+  function showToast(msg) {
+    const el = document.createElement('div');
+    el.className = 'toast'; el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+
+  composer.addEventListener('input', () => {
+    updateSend();
+    composer.style.height = 'auto';
+    composer.style.height = Math.min(composer.scrollHeight, 76) + 'px';
+  });
+  composer.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (!sendBtn.disabled) sendMsg(composer.value.trim());
+    }
+  });
+  sendBtn.addEventListener('click', () => {
+    if (!sendBtn.disabled) sendMsg(composer.value.trim());
+  });
+
+  // ── STARTUP DIAGNOSTIC ──────────────────────────────
+  // Runs silently on load — check browser console (F12) if things break
+  (async () => {
+    try {
+      const probe = await fetch(`${BASE}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      console.log('[Syd] Probe status:', probe.status);
+      if (probe.status === 403) {
+        console.warn('[Syd] 403 — your domain is not in the Botpress allowed origins list.');
+        console.warn('Fix: Botpress Studio → Integrations → Webchat → Allowed Origins → add your domain.');
+      } else if (probe.status === 404) {
+        console.warn('[Syd] 404 — Webhook ID may be wrong or bot is unpublished.');
+      } else if (probe.ok) {
+        console.log('[Syd] Endpoint reachable ✓');
+      }
+    } catch (e) {
+      console.error('[Syd] Probe failed — likely a CORS block or network issue:', e);
+    }
+  })();
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (SR) {
+    const rec = new SR();
+    rec.continuous = false; rec.interimResults = false; rec.lang = 'en-US';
+    rec.onresult = e => {
+      composer.value = e.results[0][0].transcript;
+      updateSend(); micBtn.classList.remove('recording');
+    };
+    rec.onerror = rec.onend = () => micBtn.classList.remove('recording');
+    micBtn.addEventListener('click', () => {
+      if (micBtn.classList.contains('recording')) { rec.stop(); micBtn.classList.remove('recording'); }
+      else { rec.start(); micBtn.classList.add('recording'); }
+    });
+  } else {
+    micBtn.style.display = 'none';
+  }
+</script>
+
 </body>
 </html>
- 
