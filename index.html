@@ -39,15 +39,6 @@
     /* ── BACKGROUND ─────────────────────────────────── */
     .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
 
-    /* Video layer */
-    .bg-video {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-      opacity: 0.18;
-      mix-blend-mode: lighten;
-    }
-
     .bg-gradient {
       position: absolute; inset: 0;
       background:
@@ -57,18 +48,15 @@
         linear-gradient(175deg, #12071a 0%, #0a0d1a 40%, #060a16 100%);
     }
 
-    /* Enhanced grid — more visible, futuristic feel */
     .bg-grid {
       position: absolute; inset: 0;
       background-image:
         linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
         linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
       background-size: 36px 36px;
-      /* Full coverage — no mask fade-out */
       mask-image: radial-gradient(ellipse 110% 100% at 50% 50%, black 30%, rgba(0,0,0,0.4) 80%, transparent 100%);
     }
 
-    /* Subtle grid accent dots at intersections */
     .bg-grid-dots {
       position: absolute; inset: 0;
       background-image: radial-gradient(circle, rgba(255,255,255,0.07) 1px, transparent 1px);
@@ -119,6 +107,7 @@
     @keyframes fadeUp  { from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);} }
     @keyframes fadeOut { from{opacity:1;transform:translateY(0);}to{opacity:0;transform:translateY(-10px);} }
 
+    /* ── VIDEO AVATAR ───────────────────────────────── */
     .syd-avatar {
       width: 72px; height: 72px; border-radius: 50%;
       object-fit: cover;
@@ -126,16 +115,18 @@
       box-shadow: 0 0 0 4px rgba(255,87,88,0.07), 0 0 30px rgba(255,87,88,0.25), 0 8px 24px rgba(0,0,0,0.5);
       margin-bottom: 1.1rem;
       animation: fadeUp 0.7s 0.08s cubic-bezier(0.22,1,0.36,1) both;
+      display: block;
     }
-    .syd-avatar-fallback {
-      display: none; width: 72px; height: 72px; border-radius: 50%;
-      background: linear-gradient(135deg,#c0202a,#1a1f3a);
-      border: 1.5px solid rgba(255,87,88,0.35);
-      box-shadow: 0 0 0 4px rgba(255,87,88,0.07), 0 0 30px rgba(255,87,88,0.25);
-      align-items: center; justify-content: center;
-      font-family: var(--serif); font-size: 1.6rem; color: white;
-      margin-bottom: 1.1rem;
-      animation: fadeUp 0.7s 0.08s cubic-bezier(0.22,1,0.36,1) both;
+
+    .chat-hdr-ava {
+      width: 28px; height: 28px; border-radius: 50%;
+      object-fit: cover; border: 1px solid var(--border-red); flex-shrink: 0;
+      display: block;
+    }
+
+    /* both img and video share these avatar styles */
+    video.syd-avatar, video.chat-hdr-ava, video.msg-ava {
+      display: block;
     }
 
     .syd-headline {
@@ -172,7 +163,6 @@
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
       gap: 0.5rem; padding: 0.9rem 0.45rem 0.85rem;
-      /* Glass effect */
       background: linear-gradient(
         135deg,
         rgba(255,255,255,0.07) 0%,
@@ -195,7 +185,6 @@
       transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s, background 0.2s;
     }
 
-    /* Glass inner sheen */
     .path-card::after {
       content: '';
       position: absolute;
@@ -206,7 +195,6 @@
       pointer-events: none;
     }
 
-    /* Hover tint from red */
     .path-card::before {
       content: ''; position: absolute; inset: 0;
       background: linear-gradient(160deg, rgba(255,87,88,0.12) 0%, transparent 60%);
@@ -249,10 +237,6 @@
       background: rgba(10,13,26,0.85);
       -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
       flex-shrink: 0;
-    }
-    .chat-hdr-ava {
-      width: 28px; height: 28px; border-radius: 50%;
-      object-fit: cover; border: 1px solid var(--border-red); flex-shrink: 0;
     }
     .chat-hdr-info { flex: 1; min-width: 0; }
     .chat-hdr-name  { font-size: 0.75rem; font-weight: 600; color: var(--text); line-height: 1.2; }
@@ -335,10 +319,6 @@
 <body>
 
 <div class="bg">
-  <!-- WebM video background — replace src with your hosted video URL -->
-  <video class="bg-video" autoplay loop muted playsinline>
-    <source src="syd-aurora-512-4s.webm" type="video/webm">
-  </video>
   <div class="bg-gradient"></div>
   <div class="bg-grid"></div>
   <div class="bg-grid-dots"></div>
@@ -350,10 +330,11 @@
 
   <!-- OPENING CARD -->
   <div id="opening-card">
-    <!-- Replace SYD_LOGO_URL with your hosted image URL -->
-    <img class="syd-avatar" id="syd-logo" src="SYD_LOGO_URL" alt="Syd"
-      onerror="this.style.display='none';document.getElementById('syd-ava-fb').style.display='flex';">
-    <div class="syd-avatar-fallback" id="syd-ava-fb" style="display:flex;">S</div>
+
+    <!-- Animated video logo avatar -->
+    <video class="syd-avatar" id="syd-logo" autoplay loop muted playsinline>
+      <source src="Syd_video_logo.mp4" type="video/mp4">
+    </video>
 
     <h1 class="syd-headline">Get a custom consulting asset built around your business.</h1>
     <p class="syd-subline">Tell us where you are. We'll show you what's possible.</p>
@@ -384,8 +365,10 @@
   <!-- CHAT VIEW -->
   <div id="chat-view">
     <div class="chat-header">
-      <img class="chat-hdr-ava" id="chat-logo" alt="Syd"
-        onerror="this.style.background='linear-gradient(135deg,#c0202a,#1a1f3a)';this.removeAttribute('src');">
+      <!-- Animated video logo in chat header -->
+      <video class="chat-hdr-ava" autoplay loop muted playsinline>
+        <source src="Syd_video_logo.mp4" type="video/mp4">
+      </video>
       <div class="chat-hdr-info">
         <div class="chat-hdr-name">Syd — Pisteyo</div>
         <div class="chat-hdr-status"><div class="status-dot"></div><span>Online</span></div>
@@ -447,13 +430,12 @@
         body: body !== undefined ? JSON.stringify(body) : undefined
       });
     } catch (networkErr) {
-      // Network-level failure (DNS, CORS preflight blocked, offline)
       console.error('[Syd] Network error on', method, path, networkErr);
       throw new Error('NETWORK');
     }
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      console.error('[Syd] API error', res.status, path, body);
+      const txt = await res.text().catch(() => '');
+      console.error('[Syd] API error', res.status, path, txt);
       throw new Error(`HTTP_${res.status}`);
     }
     return res.json();
@@ -462,19 +444,15 @@
   // ── SESSION INIT ─────────────────────────────────────
   async function initSession() {
     try {
-      // Step 1: create/resume user
       const u = await api('POST', '/users', {});
       userKey = u.key;
       console.log('[Syd] User key obtained');
 
-      // Step 2: open conversation
       const c = await api('POST', '/conversations', {});
       convId = c.conversation.id;
       console.log('[Syd] Conversation ID:', convId);
 
       isConnected = true;
-
-      // Step 3: try SSE first, fall back to polling
       listenSSE();
     } catch (e) {
       console.error('[Syd] initSession failed:', e.message);
@@ -526,7 +504,7 @@
         ev.data?.message?.payload?.type === 'text'
       ) {
         const msgId = ev.data.message.id;
-        if (msgId === lastMsgId) return; // dedupe
+        if (msgId === lastMsgId) return;
         lastMsgId = msgId;
         receiveBotMsg(ev.data.message.payload.text);
       }
@@ -569,7 +547,6 @@
   // ── PATH CARD CLICK ──────────────────────────────────
   document.querySelectorAll('.path-card').forEach(card => {
     card.addEventListener('click', async () => {
-      // Animate out the opening card
       openingCard.classList.add('hidden');
       setTimeout(() => {
         openingCard.style.display = 'none';
@@ -578,7 +555,6 @@
         composer.focus();
       }, 300);
 
-      // Init session, then fire the path trigger message silently
       await initSession();
       if (isConnected) {
         sendMsg(card.dataset.message, false);
@@ -598,7 +574,6 @@
     isWaiting = true;
     updateSend();
 
-    // If SSE isn't active, make sure polling is running
     if (!sseActive) startPolling();
 
     try {
@@ -614,17 +589,16 @@
     }
   }
 
-  function getLogoSrc() {
-    const img = document.getElementById('syd-logo');
-    return img && img.complete && img.naturalWidth > 0 ? img.src : '';
+  // ── MESSAGE RENDERING ────────────────────────────────
+  // Bot avatar uses a small video element inline
+  function makeBotAva() {
+    return `<video class="msg-ava" autoplay loop muted playsinline>
+      <source src="Syd_video_logo.mp4" type="video/mp4">
+    </video>`;
   }
 
   function appendMsg(role, text) {
-    const logoSrc = getLogoSrc();
-    const ava = role === 'bot'
-      ? `<img class="msg-ava" src="${logoSrc}" alt="Syd"
-           onerror="this.style.background='linear-gradient(135deg,#c0202a,#1a1f3a)';this.removeAttribute('src');">`
-      : '';
+    const ava = role === 'bot' ? makeBotAva() : '';
     const el = document.createElement('div');
     el.className = `message ${role}`;
     el.innerHTML = `${ava}<div class="msg-bubble">${fmt(text)}</div>`;
@@ -641,12 +615,10 @@
 
   function showTyping() {
     removeTyping();
-    const logoSrc = getLogoSrc();
     const el = document.createElement('div');
     el.className = 'typing-wrap'; el.id = 'typing';
     el.innerHTML = `
-      <img class="msg-ava" src="${logoSrc}" alt="Syd"
-        onerror="this.style.background='linear-gradient(135deg,#c0202a,#1a1f3a)';this.removeAttribute('src');">
+      ${makeBotAva()}
       <div class="typing-dots"><span></span><span></span><span></span></div>`;
     messagesEl.appendChild(el);
     messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -681,7 +653,6 @@
   });
 
   // ── STARTUP DIAGNOSTIC ──────────────────────────────
-  // Runs silently on load — check browser console (F12) if things break
   (async () => {
     try {
       const probe = await fetch(`${BASE}/users`, {
