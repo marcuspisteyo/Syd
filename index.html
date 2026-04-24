@@ -529,7 +529,8 @@
     pollTimer = setInterval(async () => {
       if (!isWaiting || !convId) return;
       try {
-        const d = await api('GET', `/conversations/${convId}/messages`);
+        const d = await api('GET', `/messages?conversationId=${convId}`);
+        console.log('[Syd] Poll response:', JSON.stringify(d).slice(0, 200));
         const msgs = (d.messages || [])
           .filter(m =>
             m.direction === 'incoming' &&
