@@ -126,15 +126,25 @@
     }
 
     .chat-hdr-ava {
-      width: 28px; height: 28px; border-radius: 50%;
-      object-fit: cover; border: 1px solid var(--border-red); flex-shrink: 0;
-      display: block;
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 1px solid var(--border-red); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
     }
 
-    /* both img and video share these avatar styles */
-    video.syd-avatar, video.chat-hdr-ava, video.msg-ava {
-      display: block;
+    .bot-ava {
+      background: linear-gradient(135deg, var(--navy-3), var(--navy-5));
+      border-color: rgba(255,87,88,0.5) !important;
+      box-shadow: 0 0 8px rgba(255,87,88,0.2);
+      color: #fff;
+      font-family: var(--sans);
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      line-height: 1;
+      user-select: none;
     }
+
+    .bot-ava.chat-hdr-ava { font-size: 7.5px; }
+    .bot-ava.msg-ava       { font-size: 6.5px; }
 
     .syd-eyebrow {
       font-size: 1.5rem; font-weight: 700;
@@ -282,9 +292,10 @@
     .message.bot  { align-self: flex-start; }
 
     .msg-ava {
-      width: 22px; height: 22px; border-radius: 50%;
+      width: 28px; height: 28px; border-radius: 50%;
       flex-shrink: 0; margin-top: 3px;
-      object-fit: cover; border: 1px solid var(--border-red);
+      border: 1px solid var(--border-red);
+      display: flex; align-items: center; justify-content: center;
     }
     .msg-bubble { padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 0.77rem; line-height: 1.55; word-break: break-word; }
     .message.bot  .msg-bubble { background: var(--navy-4); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 3px; }
@@ -376,10 +387,7 @@
   <!-- CHAT VIEW -->
   <div id="chat-view">
     <div class="chat-header">
-      <!-- Animated video logo in chat header -->
-      <video class="chat-hdr-ava" autoplay loop muted playsinline>
-        <source src="Syd%20video%20logo.mp4" type="video/mp4">
-      </video>
+      <div class="bot-ava chat-hdr-ava">SYD</div>
       <div class="chat-hdr-info">
         <div class="chat-hdr-name">Syd — Pisteyo</div>
         <div class="chat-hdr-status"><div class="status-dot"></div><span>Online</span></div>
@@ -554,6 +562,12 @@
     appendMsg('bot', text);
     isWaiting = false;
     updateSend();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'en-US';
+      window.speechSynthesis.speak(utt);
+    }
   }
 
   // ── PATH CARD CLICK ──────────────────────────────────
@@ -603,11 +617,8 @@
   }
 
   // ── MESSAGE RENDERING ────────────────────────────────
-  // Bot avatar uses a small video element inline
   function makeBotAva() {
-    return `<video class="msg-ava" autoplay loop muted playsinline>
-      <source src="Syd%20video%20logo.mp4" type="video/mp4">
-    </video>`;
+    return `<div class="bot-ava msg-ava">SYD</div>`;
   }
 
   function appendMsg(role, text) {
@@ -690,15 +701,51 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SR) {
     const rec = new SR();
-    rec.continuous = false; rec.interimResults = false; rec.lang = 'en-US';
+    rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+
+    let accumulated = '';
+    let silenceTimer = null;
+    let pendingSend = false;
+
     rec.onresult = e => {
-      composer.value = e.results[0][0].transcript;
-      updateSend(); micBtn.classList.remove('recording');
+      let transcript = '';
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      accumulated = transcript;
+      composer.value = transcript;
+      updateSend();
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        if (accumulated.trim()) { pendingSend = true; rec.stop(); }
+      }, 5000);
     };
-    rec.onerror = rec.onend = () => micBtn.classList.remove('recording');
+
+    rec.onend = () => {
+      micBtn.classList.remove('recording');
+      clearTimeout(silenceTimer);
+      if (pendingSend && accumulated.trim()) {
+        pendingSend = false;
+        const text = accumulated.trim();
+        accumulated = '';
+        composer.value = '';
+        sendMsg(text);
+      }
+    };
+
+    rec.onerror = () => {
+      micBtn.classList.remove('recording');
+      clearTimeout(silenceTimer);
+      pendingSend = false;
+    };
+
     micBtn.addEventListener('click', () => {
-      if (micBtn.classList.contains('recording')) { rec.stop(); micBtn.classList.remove('recording'); }
-      else { rec.start(); micBtn.classList.add('recording'); }
+      if (micBtn.classList.contains('recording')) {
+        pendingSend = false; rec.stop();
+      } else {
+        accumulated = ''; pendingSend = false;
+        rec.start(); micBtn.classList.add('recording');
+      }
     });
   } else {
     micBtn.style.display = 'none';
