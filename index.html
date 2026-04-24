@@ -588,7 +588,8 @@
     if (!sseActive) startPolling();
 
     try {
-      await api('POST', `/conversations/${convId}/messages`, {
+      await api('POST', `/messages`, {
+        conversationId: convId,
         payload: { type: 'text', text }
       });
       console.log('[Syd] Message sent:', text.slice(0, 40));
