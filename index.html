@@ -36,6 +36,12 @@
       overflow: hidden;
     }
 
+    /* iframe-safe: allow scroll if viewport is too short */
+    @media (max-height: 560px) {
+      html, body { overflow-y: auto; }
+      #opening-card { justify-content: flex-start; padding-top: 1.5rem; }
+    }
+
     /* ── BACKGROUND ─────────────────────────────────── */
     .bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
 
@@ -109,10 +115,10 @@
 
     /* ── VIDEO AVATAR ───────────────────────────────── */
     .syd-avatar {
-      width: 72px; height: 72px; border-radius: 50%;
+      width: 120px; height: 120px; border-radius: 50%;
       object-fit: cover;
-      border: 1.5px solid rgba(255,87,88,0.35);
-      box-shadow: 0 0 0 4px rgba(255,87,88,0.07), 0 0 30px rgba(255,87,88,0.25), 0 8px 24px rgba(0,0,0,0.5);
+      border: 2px solid rgba(255,87,88,0.45);
+      box-shadow: 0 0 0 6px rgba(255,87,88,0.07), 0 0 48px rgba(255,87,88,0.3), 0 12px 32px rgba(0,0,0,0.6);
       margin-bottom: 1.1rem;
       animation: fadeUp 0.7s 0.08s cubic-bezier(0.22,1,0.36,1) both;
       display: block;
@@ -127,6 +133,13 @@
     /* both img and video share these avatar styles */
     video.syd-avatar, video.chat-hdr-ava, video.msg-ava {
       display: block;
+    }
+
+    .syd-eyebrow {
+      font-size: 1.35rem; font-weight: 700;
+      color: var(--text); text-align: center;
+      letter-spacing: -0.01em; margin-bottom: 1.1rem;
+      animation: fadeUp 0.7s 0.04s cubic-bezier(0.22,1,0.36,1) both;
     }
 
     .syd-headline {
@@ -331,13 +344,14 @@
   <!-- OPENING CARD -->
   <div id="opening-card">
 
+    <p class="syd-eyebrow">Use our voice agent</p>
+
     <!-- Animated video logo avatar -->
     <video class="syd-avatar" id="syd-logo" autoplay loop muted playsinline>
       <source src="Syd%20video%20logo.mp4" type="video/mp4">
     </video>
 
-    <h1 class="syd-headline">Get a custom consulting asset built around your business.</h1>
-    <p class="syd-subline">Tell us where you are. We'll show you what's possible.</p>
+    <p class="syd-subline">Have one of these free custom consulting assets built around your business.</p>
     <div class="syd-divider"></div>
 
     <div class="syd-paths">
