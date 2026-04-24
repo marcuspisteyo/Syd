@@ -347,9 +347,60 @@
       font-size: 0.7rem; padding: 0.45rem 0.9rem; border-radius: 6px;
       z-index: 200; animation: fadeUp 0.3s ease both; white-space: nowrap;
     }
+
+    /* ── THEME TOGGLE ───────────────────────────────── */
+    #theme-toggle {
+      position: fixed; top: 0.55rem; left: 0.55rem; z-index: 500;
+      width: 26px; height: 26px; border-radius: 50%;
+      border: 1px solid rgba(255,87,88,0.28);
+      background: rgba(255,255,255,0.05);
+      color: var(--text-muted); font-size: 0.72rem;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.18s, background 0.18s, color 0.18s;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      padding: 0;
+    }
+    #theme-toggle:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+    /* ── LIGHT MODE ─────────────────────────────────── */
+    body.light {
+      background: #ffffff;
+      --navy:       #ffffff;
+      --navy-2:     #f7f7fb;
+      --navy-3:     #f0f0f5;
+      --navy-4:     #e8e8ee;
+      --navy-5:     #d4d4de;
+      --border:     rgba(0,0,0,0.09);
+      --border-red: rgba(255,87,88,0.32);
+      --text:       #0f1020;
+      --text-muted: #5a5a72;
+      --text-dim:   #9898b0;
+    }
+    body.light .bg-gradient {
+      background:
+        radial-gradient(circle 380px at 50% 25%, rgba(255,87,88,0.09) 0%, transparent 70%),
+        #ffffff;
+    }
+    body.light .bg-grid {
+      background-image:
+        linear-gradient(rgba(0,0,0,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,0,0,0.06) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: radial-gradient(ellipse 110% 100% at 50% 50%, black 30%, rgba(0,0,0,0.35) 80%, transparent 100%);
+    }
+    body.light .bg-grid-dots { display: none; }
+    body.light .bg-streak, body.light .bg-streak-2 { opacity: 0.18; }
+    body.light .chat-header  { background: rgba(255,255,255,0.92); }
+    body.light .chat-composer { background: rgba(255,255,255,0.96); }
+    body.light .syd-avatar   { background: #f0f0f5; }
+    body.light .toast        { background: #fff4f4; color: #cc2020; }
+    body.light #theme-toggle { border-color: rgba(0,0,0,0.14); background: rgba(0,0,0,0.04); color: var(--text-muted); }
+    body.light #theme-toggle:hover { border-color: var(--red); color: var(--red); background: rgba(255,87,88,0.08); }
   </style>
 </head>
 <body>
+
+<button id="theme-toggle" title="Toggle theme">☀</button>
 
 <div class="bg">
   <div class="bg-gradient"></div>
@@ -793,6 +844,18 @@
   } else {
     voiceSelect.style.display = 'none';
   }
+
+  // ── THEME TOGGLE ─────────────────────────────────────
+  const themeToggle = document.getElementById('theme-toggle');
+  if (localStorage.getItem('syd-theme') === 'light') {
+    document.body.classList.add('light');
+    themeToggle.textContent = '🌙';
+  }
+  themeToggle.addEventListener('click', () => {
+    const isLight = document.body.classList.toggle('light');
+    themeToggle.textContent = isLight ? '🌙' : '☀';
+    localStorage.setItem('syd-theme', isLight ? 'light' : 'dark');
+  });
 </script>
 
 </body>
