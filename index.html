@@ -126,25 +126,25 @@
     }
 
     .chat-hdr-ava {
-      width: 32px; height: 32px; border-radius: 50%;
-      border: 1px solid var(--border-red); flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 50%;
+      border: 1px solid rgba(255,87,88,0.5); flex-shrink: 0;
     }
 
-    .bot-ava {
-      background: linear-gradient(135deg, var(--navy-3), var(--navy-5));
-      border-color: rgba(255,87,88,0.5) !important;
-      box-shadow: 0 0 8px rgba(255,87,88,0.2);
-      color: #fff;
-      font-family: var(--sans);
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      line-height: 1;
-      user-select: none;
+    /* zoomed video avatar — clips to circle, centers on SYD text */
+    .ava-wrap {
+      position: relative; border-radius: 50%;
+      overflow: hidden; flex-shrink: 0;
+      border: 1px solid rgba(255,87,88,0.5);
+      box-shadow: 0 0 6px rgba(255,87,88,0.18);
     }
-
-    .bot-ava.chat-hdr-ava { font-size: 7.5px; }
-    .bot-ava.msg-ava       { font-size: 6.5px; }
+    .ava-wrap video {
+      position: absolute; top: 50%; left: 50%;
+      width: 220%; height: 220%;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+    }
+    .ava-wrap.chat-hdr-ava { width: 34px; height: 34px; }
+    .ava-wrap.msg-ava       { width: 30px; height: 30px; margin-top: 3px; }
 
     .syd-eyebrow {
       font-size: 1.5rem; font-weight: 700;
@@ -301,10 +301,9 @@
     .message.bot  { align-self: flex-start; }
 
     .msg-ava {
-      width: 28px; height: 28px; border-radius: 50%;
+      width: 30px; height: 30px; border-radius: 50%;
       flex-shrink: 0; margin-top: 3px;
       border: 1px solid var(--border-red);
-      display: flex; align-items: center; justify-content: center;
     }
     .msg-bubble { padding: 0.6rem 0.8rem; border-radius: 12px; font-size: 0.77rem; line-height: 1.55; word-break: break-word; }
     .message.bot  .msg-bubble { background: var(--navy-4); border: 1px solid var(--border); color: var(--text); border-bottom-left-radius: 3px; }
@@ -396,7 +395,7 @@
   <!-- CHAT VIEW -->
   <div id="chat-view">
     <div class="chat-header">
-      <div class="bot-ava chat-hdr-ava">SYD</div>
+      <div class="ava-wrap chat-hdr-ava"><video autoplay loop muted playsinline><source src="Syd%20video%20logo.mp4" type="video/mp4"></video></div>
       <div class="chat-hdr-info">
         <div class="chat-hdr-name">Syd — Pisteyo</div>
         <div class="chat-hdr-status"><div class="status-dot"></div><span>Online</span></div>
@@ -631,7 +630,7 @@
 
   // ── MESSAGE RENDERING ────────────────────────────────
   function makeBotAva() {
-    return `<div class="bot-ava msg-ava">SYD</div>`;
+    return `<div class="ava-wrap msg-ava"><video autoplay loop muted playsinline><source src="Syd%20video%20logo.mp4" type="video/mp4"></video></div>`;
   }
 
   function appendMsg(role, text) {
