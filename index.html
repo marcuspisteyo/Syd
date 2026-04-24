@@ -529,7 +529,7 @@
     pollTimer = setInterval(async () => {
       if (!isWaiting || !convId) return;
       try {
-        const d = await api('GET', `/messages?conversationId=${convId}`);
+        const d = await api('GET', `/conversations/${convId}/messages`);
         console.log('[Syd] Poll response:', JSON.stringify(d).slice(0, 200));
         const msgs = (d.messages || [])
           .filter(m =>
@@ -589,11 +589,11 @@
     if (!sseActive) startPolling();
 
     try {
-      await api('POST', `/messages`, {
+      const sent = await api('POST', `/messages`, {
         conversationId: convId,
         payload: { type: 'text', text }
       });
-      console.log('[Syd] Message sent:', text.slice(0, 40));
+      console.log('[Syd] Message sent:', text.slice(0, 40), '| response:', JSON.stringify(sent).slice(0, 150));
     } catch (e) {
       removeTyping();
       isWaiting = false;
