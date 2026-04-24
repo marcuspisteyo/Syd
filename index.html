@@ -274,6 +274,15 @@
       overflow: hidden; text-overflow: ellipsis;
     }
 
+    .voice-select {
+      font-size: 0.56rem; font-family: var(--sans); font-weight: 400;
+      background: var(--navy-4); color: var(--text-muted);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 0.15rem 0.25rem; max-width: 88px;
+      cursor: pointer; outline: none; flex-shrink: 0;
+    }
+    .voice-select:focus { border-color: var(--border-red); }
+
     .chat-messages {
       flex: 1; overflow-y: auto;
       padding: 0.85rem 0.75rem;
@@ -393,6 +402,7 @@
         <div class="chat-hdr-status"><div class="status-dot"></div><span>Online</span></div>
       </div>
       <div class="path-tag" id="path-tag"></div>
+      <select id="voice-select" class="voice-select" title="Choose voice"></select>
     </div>
 
     <div class="chat-messages" id="messages"></div>
@@ -425,6 +435,7 @@
 
   // ── STATE ────────────────────────────────────────────
   let userKey = null, myUserId = null, convId = null;
+  let selectedVoice = null;
   let isConnected = false, isWaiting = false;
   let pollTimer = null, seenIds = new Set();
   let sseActive = false;
@@ -566,6 +577,7 @@
       window.speechSynthesis.cancel();
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = 'en-US';
+      if (selectedVoice) utt.voice = selectedVoice;
       window.speechSynthesis.speak(utt);
     }
   }
@@ -591,6 +603,7 @@
   // ── SEND MESSAGE ─────────────────────────────────────
   async function sendMsg(text, showBubble = true) {
     if (!text.trim() || isWaiting) return;
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
     if (showBubble) {
       appendMsg('user', text);
       composer.value = '';
@@ -744,11 +757,42 @@
         pendingSend = false; rec.stop();
       } else {
         accumulated = ''; pendingSend = false;
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         rec.start(); micBtn.classList.add('recording');
       }
     });
   } else {
     micBtn.style.display = 'none';
+  }
+
+  // ── VOICE PICKER ─────────────────────────────────────
+  const voiceSelect = document.getElementById('voice-select');
+  function loadVoices() {
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    if (!voices.length) return;
+    const prev = voiceSelect.value;
+    voiceSelect.innerHTML = '';
+    voices.forEach((v, i) => {
+      const o = document.createElement('option');
+      o.value = i; o.textContent = v.name;
+      voiceSelect.appendChild(o);
+    });
+    // prefer a natural/premium voice by default
+    const preferred = voices.findIndex(v =>
+      /natural|premium|neural|google/i.test(v.name)
+    );
+    voiceSelect.value = preferred >= 0 ? preferred : (prev || 0);
+    selectedVoice = voices[voiceSelect.value] || null;
+  }
+  if (window.speechSynthesis) {
+    loadVoices();
+    speechSynthesis.onvoiceschanged = loadVoices;
+    voiceSelect.addEventListener('change', () => {
+      const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+      selectedVoice = voices[voiceSelect.value] || null;
+    });
+  } else {
+    voiceSelect.style.display = 'none';
   }
 </script>
 
