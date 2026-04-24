@@ -416,9 +416,9 @@
   const BASE = `https://chat.botpress.cloud/${WEBHOOK_ID}`;
 
   // ── STATE ────────────────────────────────────────────
-  let userKey = null, convId = null;
+  let userKey = null, myUserId = null, convId = null;
   let isConnected = false, isWaiting = false;
-  let pollTimer = null, lastMsgId = null;
+  let pollTimer = null, seenIds = new Set();
   let sseActive = false;
 
   const openingCard = document.getElementById('opening-card');
@@ -457,7 +457,8 @@
     try {
       const u = await api('POST', '/users', {});
       userKey = u.key;
-      console.log('[Syd] User key obtained');
+      myUserId = u.user?.id || null;
+      console.log('[Syd] User key obtained, userId:', myUserId);
 
       const c = await api('POST', '/conversations', {});
       convId = c.conversation.id;
@@ -511,12 +512,12 @@
       const ev = JSON.parse(raw);
       if (
         ev.type === 'message_created' &&
-        ev.data?.message?.direction === 'incoming' &&
+        ev.data?.message?.userId !== myUserId &&
         ev.data?.message?.payload?.type === 'text'
       ) {
         const msgId = ev.data.message.id;
-        if (msgId === lastMsgId) return;
-        lastMsgId = msgId;
+        if (seenIds.has(msgId)) return;
+        seenIds.add(msgId);
         receiveBotMsg(ev.data.message.payload.text);
       }
     } catch (_) {}
@@ -533,15 +534,14 @@
         console.log('[Syd] Poll response:', JSON.stringify(d).slice(0, 200));
         const msgs = (d.messages || [])
           .filter(m =>
-            m.direction === 'incoming' &&
+            m.userId !== myUserId &&
             m.payload?.type === 'text' &&
-            m.id !== lastMsgId
+            !seenIds.has(m.id)
           )
           .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-        if (msgs.length) {
-          const latest = msgs[msgs.length - 1];
-          lastMsgId = latest.id;
-          receiveBotMsg(latest.payload.text);
+        for (const msg of msgs) {
+          seenIds.add(msg.id);
+          receiveBotMsg(msg.payload.text);
         }
       } catch (e) {
         console.warn('[Syd] Poll error:', e.message);
