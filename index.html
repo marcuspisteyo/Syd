@@ -146,6 +146,8 @@
     .ava-wrap.chat-hdr-ava { width: 34px; height: 34px; }
     .ava-wrap.msg-ava       { width: 30px; height: 30px; margin-top: 3px; }
 
+    .opening-header { width: 100%; text-align: center; }
+
     .syd-eyebrow {
       font-size: 1.5rem; font-weight: 700;
       font-family: var(--sans);
@@ -153,6 +155,15 @@
       letter-spacing: -0.01em; margin-bottom: 0.75rem;
       animation: fadeUp 0.7s 0.04s cubic-bezier(0.22,1,0.36,1) both;
     }
+
+    /* light mode: eyebrow becomes a full-width header band */
+    body.light #opening-card { padding-top: 0; padding-left: 0; padding-right: 0; }
+    body.light .opening-header {
+      background: #ff5758;
+      padding: 1rem 1.25rem 0.9rem;
+      margin-bottom: 0.6rem;
+    }
+    body.light .syd-eyebrow { color: #ffffff; margin-bottom: 0; }
 
     .syd-headline {
       font-family: var(--serif); font-size: 1.2rem;
@@ -424,7 +435,9 @@
   <!-- OPENING CARD -->
   <div id="opening-card">
 
-    <p class="syd-eyebrow">Use our voice agent</p>
+    <div class="opening-header">
+      <p class="syd-eyebrow">Use our voice agent</p>
+    </div>
 
     <!-- Animated video logo avatar -->
     <video class="syd-avatar" id="syd-logo" autoplay loop muted playsinline>
