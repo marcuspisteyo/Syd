@@ -156,14 +156,28 @@
       animation: fadeUp 0.7s 0.04s cubic-bezier(0.22,1,0.36,1) both;
     }
 
-    /* light mode: eyebrow becomes a full-width header band */
-    body.light #opening-card { padding-top: 0; padding-left: 0; padding-right: 0; }
+        /* light mode: eyebrow becomes a fixed top header band */
+    body.light #opening-card {
+      padding-top: 4.25rem;
+      padding-left: 0;
+      padding-right: 0;
+    }
+
     body.light .opening-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 450;
       background: #ff5758;
       padding: 1rem 1.25rem 0.9rem;
-      margin-bottom: 0.6rem;
+      margin-bottom: 0;
     }
-    body.light .syd-eyebrow { color: #ffffff; margin-bottom: 0; }
+
+    body.light .syd-eyebrow {
+      color: #ffffff;
+      margin-bottom: 0;
+    }    
 
     .syd-headline {
       font-family: var(--serif); font-size: 1.2rem;
