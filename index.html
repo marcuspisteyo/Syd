@@ -827,6 +827,7 @@
     rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
 
     let accumulated = '';
+    let prefix = '';
     let silenceTimer = null;
     let pendingSend = false;
 
@@ -836,7 +837,7 @@
         transcript += e.results[i][0].transcript;
       }
       accumulated = transcript;
-      composer.value = transcript;
+      composer.value = prefix ? prefix + ' ' + transcript : transcript;
       updateSend();
       clearTimeout(silenceTimer);
       silenceTimer = setTimeout(() => {
@@ -849,10 +850,13 @@
       clearTimeout(silenceTimer);
       if (pendingSend && accumulated.trim()) {
         pendingSend = false;
-        const text = accumulated.trim();
-        accumulated = '';
+        const text = (prefix ? prefix + ' ' + accumulated : accumulated).trim();
+        prefix = ''; accumulated = '';
         composer.value = '';
         sendMsg(text);
+      } else {
+        // manual stop — leave text in box, clear session state only
+        prefix = ''; accumulated = '';
       }
     };
 
@@ -860,6 +864,7 @@
       micBtn.classList.remove('recording');
       clearTimeout(silenceTimer);
       pendingSend = false;
+      prefix = ''; accumulated = '';
       console.warn('[Syd] Speech error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         showToast('Microphone access denied — please allow mic in your browser.');
@@ -876,6 +881,7 @@
       if (micBtn.classList.contains('recording')) {
         pendingSend = false; rec.stop();
       } else {
+        prefix = composer.value.trim();
         accumulated = ''; pendingSend = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         try {
