@@ -825,17 +825,49 @@
   if (SR) {
     let active = false;
     let silenceTimer = null;
+    let retryTimer = null;
     let networkAttempts = 0;
+    let warmupR = null;
+
+    // Pre-warm the browser's speech-server connection silently.
+    // Chrome/Edge typically fires 3 "network" errors (~4s each) before the
+    // WebSocket to the speech backend establishes. Running this in the
+    // background means those failures happen before the user ever clicks,
+    // so their first real recording connects instantly.
+    function primeConnection() {
+      if (active) return;                          // never interfere with live session
+      if (warmupR) { try { warmupR.abort(); } catch(e2) {} warmupR = null; }
+      try {
+        const w = new SR();
+        warmupR = w;
+        w.lang = 'en-US'; w.continuous = false; w.interimResults = false;
+        w.onend  = () => { if (warmupR === w) warmupR = null; };
+        w.onerror = () => {};
+        w.start();
+        // Abort quickly once started – we only need the connection, not audio
+        setTimeout(() => { if (warmupR === w) { try { w.abort(); } catch(e2) {} warmupR = null; } }, 600);
+      } catch(e) {}
+    }
+
+    // If the user has already granted mic permission, prime on page load
+    // so the connection is ready before they first click.
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'microphone' }).then(s => {
+        if (s.state === 'granted') setTimeout(primeConnection, 800);
+      }).catch(() => {});
+    }
 
     function go() {
+      // Stop any background warmup so both don't compete for the mic
+      if (warmupR) { try { warmupR.abort(); } catch(e2) {} warmupR = null; }
+
       const r = new SR();
       r.continuous = true; r.interimResults = true; r.lang = 'en-US';
       const base = composer.value.trim();
       let gotResults = false;
 
       r.onresult = e => {
-        gotResults = true;
-        networkAttempts = 0;
+        gotResults = true; networkAttempts = 0;
         let t = '';
         for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
         composer.value = base ? base + ' ' + t : t;
@@ -844,8 +876,7 @@
         silenceTimer = setTimeout(() => {
           const text = composer.value.trim();
           if (text) {
-            active = false;
-            micBtn.classList.remove('recording');
+            active = false; micBtn.classList.remove('recording');
             composer.value = ''; updateSend();
             try { r.stop(); } catch(e) {}
             sendMsg(text);
@@ -861,39 +892,43 @@
           active = false; networkAttempts = 0; micBtn.classList.remove('recording');
           showToast('No microphone detected.');
         }
-        // network / no-speech: let onend decide
       };
 
       r.onend = () => {
         clearTimeout(silenceTimer);
-        if (!active) return;
-        if (!gotResults && networkAttempts < 6) {
-          // network error — retry silently, button stays lit
-          networkAttempts++;
-          go();
+        if (!active) {
+          // Session ended cleanly (user stopped or silence auto-sent) – re-prime
+          if (gotResults) setTimeout(primeConnection, 1500);
           return;
         }
-        // gave up or natural end after results
-        networkAttempts = 0;
-        active = false;
-        micBtn.classList.remove('recording');
+        // Still active but no audio yet → retry (network reconnect cycle)
+        if (!gotResults && networkAttempts < 10) {
+          networkAttempts++;
+          retryTimer = setTimeout(() => { if (active) go(); }, 150);
+          return;
+        }
+        networkAttempts = 0; active = false; micBtn.classList.remove('recording');
+        if (gotResults) {
+          setTimeout(primeConnection, 1500); // re-prime for next use
+        } else {
+          showToast('Could not connect to voice — please try again.');
+        }
       };
 
       try { r.start(); }
       catch(err) {
-        console.warn('[Syd] SR start threw:', err.name);
         active = false; micBtn.classList.remove('recording');
       }
     }
 
     micBtn.addEventListener('click', () => {
       if (active) {
-        active = false;
-        clearTimeout(silenceTimer);
+        active = false; networkAttempts = 0;
+        clearTimeout(silenceTimer); clearTimeout(retryTimer);
         micBtn.classList.remove('recording');
-        // text stays in composer — user can edit or send manually
       } else {
-        active = true;
+        active = true; networkAttempts = 0;
+        clearTimeout(retryTimer);
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         micBtn.classList.add('recording');
         go();
