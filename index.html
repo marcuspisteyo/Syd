@@ -864,8 +864,9 @@
       r.onend = () => {
         clearTimeout(silenceTimer);
         if (!active) return;
-        // unexpected stop (network hiccup etc.) — restart silently
-        setTimeout(() => { if (active) go(); }, 300);
+        // session ended without sending — reset button so user can press again
+        active = false;
+        micBtn.classList.remove('recording');
       };
 
       try { r.start(); }
