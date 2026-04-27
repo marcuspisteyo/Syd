@@ -821,46 +821,15 @@
     }
   })();
 
-  const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
+  // Prefer unprefixed standard API in Edge/Chrome; fall back to webkit prefix
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SR) {
     let active = false;
     let silenceTimer = null;
     let retryTimer = null;
     let networkAttempts = 0;
-    let warmupR = null;
-
-    // Pre-warm the browser's speech-server connection silently.
-    // Chrome/Edge typically fires 3 "network" errors (~4s each) before the
-    // WebSocket to the speech backend establishes. Running this in the
-    // background means those failures happen before the user ever clicks,
-    // so their first real recording connects instantly.
-    function primeConnection() {
-      if (active) return;                          // never interfere with live session
-      if (warmupR) { try { warmupR.abort(); } catch(e2) {} warmupR = null; }
-      try {
-        const w = new SR();
-        warmupR = w;
-        w.lang = 'en-US'; w.continuous = false; w.interimResults = false;
-        w.onend  = () => { if (warmupR === w) warmupR = null; };
-        w.onerror = () => {};
-        w.start();
-        // Abort quickly once started – we only need the connection, not audio
-        setTimeout(() => { if (warmupR === w) { try { w.abort(); } catch(e2) {} warmupR = null; } }, 600);
-      } catch(e) {}
-    }
-
-    // If the user has already granted mic permission, prime on page load
-    // so the connection is ready before they first click.
-    if (navigator.permissions) {
-      navigator.permissions.query({ name: 'microphone' }).then(s => {
-        if (s.state === 'granted') setTimeout(primeConnection, 800);
-      }).catch(() => {});
-    }
 
     function go() {
-      // Stop any background warmup so both don't compete for the mic
-      if (warmupR) { try { warmupR.abort(); } catch(e2) {} warmupR = null; }
-
       const r = new SR();
       r.continuous = true; r.interimResults = true; r.lang = 'en-US';
       const base = composer.value.trim();
@@ -892,27 +861,21 @@
           active = false; networkAttempts = 0; micBtn.classList.remove('recording');
           showToast('No microphone detected.');
         }
+        // network / other errors: let onend handle the retry
       };
 
       r.onend = () => {
         clearTimeout(silenceTimer);
-        if (!active) {
-          // Session ended cleanly (user stopped or silence auto-sent) – re-prime
-          if (gotResults) setTimeout(primeConnection, 1500);
-          return;
-        }
-        // Still active but no audio yet → retry (network reconnect cycle)
-        if (!gotResults && networkAttempts < 10) {
+        if (!active) return;
+        if (!gotResults && networkAttempts < 8) {
+          // Show a one-time "connecting" hint so the user knows to hold on
+          if (networkAttempts === 1) showToast('Connecting to voice… please hold on.');
           networkAttempts++;
-          retryTimer = setTimeout(() => { if (active) go(); }, 150);
+          retryTimer = setTimeout(() => { if (active) go(); }, 800);
           return;
         }
         networkAttempts = 0; active = false; micBtn.classList.remove('recording');
-        if (gotResults) {
-          setTimeout(primeConnection, 1500); // re-prime for next use
-        } else {
-          showToast('Could not connect to voice — please try again.');
-        }
+        if (!gotResults) showToast('Could not connect to voice — please try again.');
       };
 
       try { r.start(); }
