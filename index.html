@@ -366,6 +366,21 @@
     .mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); animation: micPulse 1s ease-in-out infinite; }
     @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,87,88,.3);}50%{box-shadow:0 0 0 4px rgba(255,87,88,.1);} }
 
+    .voice-toggle-btn {
+      height: 32px; padding: 0 0.65rem;
+      border-radius: 8px; border: 1px solid var(--border-red);
+      background: var(--red-dim); color: var(--red);
+      font-family: var(--sans); font-size: 0.68rem; font-weight: 600;
+      cursor: pointer; flex-shrink: 0; white-space: nowrap;
+      transition: all 0.18s; letter-spacing: 0.01em;
+    }
+    .voice-toggle-btn:hover { background: rgba(255,87,88,0.25); }
+    .voice-toggle-btn.voice-off {
+      background: var(--navy-4); border-color: var(--border);
+      color: var(--text-dim);
+    }
+    .voice-toggle-btn.voice-off:hover { border-color: var(--border-red); color: var(--text-muted); }
+
     .toast {
       position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
       background: #1a0d0d; border: 1px solid rgba(255,87,88,0.3); color: var(--red);
@@ -375,7 +390,7 @@
 
     /* ── THEME TOGGLE ───────────────────────────────── */
     #theme-toggle {
-      position: fixed; top: 0.55rem; left: 0.55rem; z-index: 500;
+      position: fixed; top: 0.55rem; right: 0.55rem; z-index: 500;
       width: 26px; height: 26px; border-radius: 50%;
       border: 1px solid rgba(255,87,88,0.28);
       background: rgba(255,255,255,0.05);
@@ -503,6 +518,7 @@
         </svg>
       </button>
       <textarea class="composer-input" id="composer" placeholder="Ask Syd..." rows="1"></textarea>
+      <button class="voice-toggle-btn" id="voice-toggle-btn" title="Toggle voice readback">🔊 Voice</button>
       <button class="composer-btn send-btn" id="send-btn" disabled>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -654,12 +670,14 @@
     }, 1500);
   }
 
+  let ttsEnabled = true;
+
   function receiveBotMsg(text) {
     removeTyping();
     appendMsg('bot', text);
     isWaiting = false;
     updateSend();
-    if (window.speechSynthesis) {
+    if (ttsEnabled && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = 'en-US';
@@ -667,6 +685,14 @@
       window.speechSynthesis.speak(utt);
     }
   }
+
+  // ── KILL TTS ON PAGE LEAVE ───────────────────────────
+  const killTTS = () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); };
+  window.addEventListener('beforeunload', killTTS);
+  window.addEventListener('pagehide', killTTS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') killTTS();
+  });
 
   // ── PATH CARD CLICK ──────────────────────────────────
   document.querySelectorAll('.path-card').forEach(card => {
@@ -880,6 +906,15 @@
   } else {
     voiceSelect.style.display = 'none';
   }
+
+  // ── VOICE TOGGLE ─────────────────────────────────────
+  const voiceToggleBtn = document.getElementById('voice-toggle-btn');
+  voiceToggleBtn.addEventListener('click', () => {
+    ttsEnabled = !ttsEnabled;
+    voiceToggleBtn.textContent = ttsEnabled ? '🔊 Voice' : '🔇 Voice';
+    voiceToggleBtn.classList.toggle('voice-off', !ttsEnabled);
+    if (!ttsEnabled && window.speechSynthesis) window.speechSynthesis.cancel();
+  });
 
   // ── THEME TOGGLE ─────────────────────────────────────
   const themeToggle = document.getElementById('theme-toggle');
