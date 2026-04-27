@@ -471,7 +471,7 @@
     <!-- Animated video logo avatar -->
     <img class="syd-avatar" id="syd-logo" src="syd_hires_navy.svg" alt="Syd">
 
-    <p class="syd-subline">Choose the consulting asset you want, built around your business — free.</p>
+    <p class="syd-subline">Choose what you want Syd to build for you.</p>
 
     <div class="syd-paths">
       <button class="path-card"
@@ -856,10 +856,20 @@
       }
     };
 
-    rec.onerror = () => {
+    rec.onerror = (e) => {
       micBtn.classList.remove('recording');
       clearTimeout(silenceTimer);
       pendingSend = false;
+      console.warn('[Syd] Speech error:', e.error);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        showToast('Microphone access denied — please allow mic in your browser.');
+      } else if (e.error === 'audio-capture') {
+        showToast('No microphone detected.');
+      } else if (e.error === 'network') {
+        showToast('Voice recognition needs an internet connection.');
+      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
+        showToast(`Voice error: ${e.error}`);
+      }
     };
 
     micBtn.addEventListener('click', () => {
@@ -868,7 +878,13 @@
       } else {
         accumulated = ''; pendingSend = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        rec.start(); micBtn.classList.add('recording');
+        try {
+          rec.start();
+          micBtn.classList.add('recording');
+        } catch(err) {
+          console.warn('[Syd] rec.start() threw:', err.name, err.message);
+          showToast('Could not start microphone — ' + err.message);
+        }
       }
     });
   } else {
