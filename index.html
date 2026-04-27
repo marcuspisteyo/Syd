@@ -137,9 +137,9 @@
       border: 1px solid rgba(255,87,88,0.5);
       box-shadow: 0 0 6px rgba(255,87,88,0.18);
     }
-    .ava-wrap video {
+    .ava-wrap img {
       position: absolute; top: 50%; left: 50%;
-      width: 220%; height: 220%;
+      width: 115%; height: 115%;
       transform: translate(-50%, -50%);
       object-fit: cover;
     }
@@ -469,9 +469,7 @@
     </div>
 
     <!-- Animated video logo avatar -->
-    <video class="syd-avatar" id="syd-logo" autoplay loop muted playsinline>
-      <source src="Syd%20video%20logo.mp4" type="video/mp4">
-    </video>
+    <img class="syd-avatar" id="syd-logo" src="syd_hires_navy.svg" alt="Syd">
 
     <p class="syd-subline">Choose the consulting asset you want, built around your business — free.</p>
 
@@ -497,7 +495,7 @@
   <!-- CHAT VIEW -->
   <div id="chat-view">
     <div class="chat-header">
-      <div class="ava-wrap chat-hdr-ava"><video autoplay loop muted playsinline><source src="Syd%20video%20logo.mp4" type="video/mp4"></video></div>
+      <div class="ava-wrap chat-hdr-ava"><img src="syd_hires_navy.svg" alt="Syd"></div>
       <div class="chat-hdr-info">
         <div class="chat-hdr-name">Syd — Pisteyo</div>
         <div class="chat-hdr-status"><div class="status-dot"></div><span>Online</span></div>
@@ -743,7 +741,7 @@
 
   // ── MESSAGE RENDERING ────────────────────────────────
   function makeBotAva() {
-    return `<div class="ava-wrap msg-ava"><video autoplay loop muted playsinline><source src="Syd%20video%20logo.mp4" type="video/mp4"></video></div>`;
+    return `<div class="ava-wrap msg-ava"><img src="syd_hires_navy.svg" alt="Syd"></div>`;
   }
 
   function appendMsg(role, text) {
