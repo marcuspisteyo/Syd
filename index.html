@@ -823,34 +823,35 @@
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (SR) {
-    let rec = null;
+    let rec        = null;
     let accumulated = '';
-    let prefix = '';
+    let prefix      = '';
     let silenceTimer = null;
-    let pendingSend = false;
+    let pendingSend  = false;
+    let retrying     = false;
     let networkRetries = 0;
 
     function startRec() {
       try {
-        rec = new SR();
-        rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
+        const r = new SR();
+        rec = r;
+        r.continuous = true; r.interimResults = true; r.lang = 'en-US';
 
-        rec.onresult = e => {
-          networkRetries = 0; // successful audio resets retry counter
+        r.onresult = e => {
+          networkRetries = 0;
           let transcript = '';
-          for (let i = 0; i < e.results.length; i++) {
-            transcript += e.results[i][0].transcript;
-          }
+          for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
           accumulated = transcript;
           composer.value = prefix ? prefix + ' ' + transcript : transcript;
           updateSend();
           clearTimeout(silenceTimer);
           silenceTimer = setTimeout(() => {
-            if (accumulated.trim()) { pendingSend = true; rec.stop(); }
+            if (accumulated.trim()) { pendingSend = true; r.stop(); }
           }, 5000);
         };
 
-        rec.onend = () => {
+        r.onend = () => {
+          if (retrying) { rec = null; return; } // retry in progress — don't touch state
           micBtn.classList.remove('recording');
           clearTimeout(silenceTimer);
           if (pendingSend && accumulated.trim()) {
@@ -865,17 +866,19 @@
           rec = null;
         };
 
-        rec.onerror = (e) => {
+        r.onerror = (e) => {
           console.warn('[Syd] Speech error:', e.error);
           if (e.error === 'network' && networkRetries < 3) {
-            // Chrome drops its Google connection between sessions — silently retry
             networkRetries++;
+            retrying = true;
             rec = null;
             setTimeout(() => {
-              if (micBtn.classList.contains('recording')) startRec();
-            }, 400);
+              retrying = false;
+              startRec(); // button still shows recording; prefix/accumulated intact
+            }, 500);
             return;
           }
+          retrying = false;
           micBtn.classList.remove('recording');
           clearTimeout(silenceTimer);
           pendingSend = false; prefix = ''; accumulated = '';
@@ -889,9 +892,10 @@
           }
         };
 
-        rec.start();
+        r.start();
       } catch(err) {
         console.warn('[Syd] rec.start() threw:', err.name, err.message);
+        retrying = false;
         micBtn.classList.remove('recording');
         showToast('Could not start microphone — ' + err.message);
         rec = null;
@@ -900,11 +904,11 @@
 
     micBtn.addEventListener('click', () => {
       if (micBtn.classList.contains('recording')) {
-        pendingSend = false;
-        if (rec) rec.stop();
+        retrying = false; pendingSend = false;
+        if (rec) rec.stop(); else micBtn.classList.remove('recording');
       } else {
         prefix = composer.value.trim();
-        accumulated = ''; pendingSend = false; networkRetries = 0;
+        accumulated = ''; pendingSend = false; networkRetries = 0; retrying = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         micBtn.classList.add('recording');
         startRec();
