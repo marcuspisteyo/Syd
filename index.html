@@ -363,8 +363,8 @@
     .send-btn:disabled { background: var(--navy-5); color: var(--text-dim); cursor: not-allowed; }
     .mic-btn { background: var(--navy-4); border: 1px solid var(--border); color: var(--text-muted); }
     .mic-btn:hover { border-color: var(--border-red); color: var(--red); }
-    .mic-btn.recording { background: var(--red-dim); border-color: var(--red); color: var(--red); animation: micPulse 1s ease-in-out infinite; }
-    @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,87,88,.3);}50%{box-shadow:0 0 0 4px rgba(255,87,88,.1);} }
+    .mic-btn.recording { background: var(--red) !important; border-color: var(--red) !important; color: #fff !important; animation: micPulse 1.1s ease-in-out infinite; }
+    @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,87,88,.6);}50%{box-shadow:0 0 0 7px rgba(255,87,88,0);} }
 
     .voice-toggle-btn {
       height: 32px; padding: 0 0.65rem;
@@ -828,9 +828,26 @@
     let silenceTimer = null;
     let retryTimer = null;
     let networkAttempts = 0;
+    let currentR = null;  // tracks the live SR instance so we can abort it cleanly
+
+    // Icon swap — saves original mic SVG and swaps to a stop square while recording
+    const MIC_ICON  = micBtn.innerHTML;
+    const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
+
+    function setRec(on) {
+      micBtn.innerHTML = on ? STOP_ICON : MIC_ICON;
+      micBtn.title     = on ? 'Stop recording' : 'Voice input';
+      micBtn.classList.toggle('recording', on);
+    }
+
+    function stopCurrent() {
+      if (currentR) { try { currentR.abort(); } catch(e) {} currentR = null; }
+    }
 
     function go() {
+      stopCurrent();          // abort any stale instance before creating a new one
       const r = new SR();
+      currentR = r;
       r.continuous = true; r.interimResults = true; r.lang = 'en-US';
       const base = composer.value.trim();
       let gotResults = false;
@@ -845,7 +862,7 @@
         silenceTimer = setTimeout(() => {
           const text = composer.value.trim();
           if (text) {
-            active = false; micBtn.classList.remove('recording');
+            active = false; setRec(false);
             composer.value = ''; updateSend();
             try { r.stop(); } catch(e) {}
             sendMsg(text);
@@ -855,32 +872,33 @@
 
       r.onerror = e => {
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-          active = false; networkAttempts = 0; micBtn.classList.remove('recording');
+          active = false; networkAttempts = 0; setRec(false);
           showToast('Microphone access denied — please allow mic in your browser.');
         } else if (e.error === 'audio-capture') {
-          active = false; networkAttempts = 0; micBtn.classList.remove('recording');
+          active = false; networkAttempts = 0; setRec(false);
           showToast('No microphone detected.');
         }
         // network / other errors: let onend handle the retry
       };
 
       r.onend = () => {
+        if (currentR === r) currentR = null;
         clearTimeout(silenceTimer);
         if (!active) return;
         if (!gotResults && networkAttempts < 8) {
-          // Show a one-time "connecting" hint so the user knows to hold on
           if (networkAttempts === 1) showToast('Connecting to voice… please hold on.');
           networkAttempts++;
           retryTimer = setTimeout(() => { if (active) go(); }, 800);
           return;
         }
-        networkAttempts = 0; active = false; micBtn.classList.remove('recording');
+        networkAttempts = 0; active = false; setRec(false);
         if (!gotResults) showToast('Could not connect to voice — please try again.');
       };
 
       try { r.start(); }
       catch(err) {
-        active = false; micBtn.classList.remove('recording');
+        currentR = null;
+        active = false; setRec(false);
       }
     }
 
@@ -888,12 +906,13 @@
       if (active) {
         active = false; networkAttempts = 0;
         clearTimeout(silenceTimer); clearTimeout(retryTimer);
-        micBtn.classList.remove('recording');
+        stopCurrent();
+        setRec(false);
       } else {
         active = true; networkAttempts = 0;
         clearTimeout(retryTimer);
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        micBtn.classList.add('recording');
+        setRec(true);
         go();
       }
     });
