@@ -821,7 +821,7 @@
     }
   })();
 
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const SR = window.webkitSpeechRecognition || window.SpeechRecognition;
   if (SR) {
     let active = false;
     let silenceTimer = null;
@@ -829,9 +829,18 @@
     function go() {
       const r = new SR();
       r.continuous = true; r.interimResults = true; r.lang = 'en-US';
-      const base = composer.value.trim(); // snapshot of box at session start
+      const base = composer.value.trim();
+
+      const t0 = Date.now();
+      r.onstart      = () => console.log('[mic] onstart',      Date.now() - t0, 'ms');
+      r.onaudiostart = () => console.log('[mic] onaudiostart', Date.now() - t0, 'ms');
+      r.onspeechstart= () => console.log('[mic] onspeechstart',Date.now() - t0, 'ms');
+      r.onerror      = e  => console.log('[mic] onerror',      e.error,          Date.now() - t0, 'ms');
+      r.onspeechend  = () => console.log('[mic] onspeechend',  Date.now() - t0, 'ms');
+      r.onend        = () => console.log('[mic] onend',        Date.now() - t0, 'ms');
 
       r.onresult = e => {
+        console.log('[mic] onresult', Date.now() - t0, 'ms');
         let t = '';
         for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
         composer.value = base ? base + ' ' + t : t;
@@ -849,8 +858,7 @@
         }, 5000);
       };
 
-      r.onerror = e => {
-        console.warn('[Syd] SR error:', e.error);
+      r.addEventListener('error', e => {
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
           active = false; micBtn.classList.remove('recording');
           showToast('Microphone access denied — please allow mic in your browser.');
@@ -858,16 +866,14 @@
           active = false; micBtn.classList.remove('recording');
           showToast('No microphone detected.');
         }
-        // network / no-speech / aborted: let onend restart
-      };
+      });
 
-      r.onend = () => {
+      r.addEventListener('end', () => {
         clearTimeout(silenceTimer);
         if (!active) return;
-        // session ended without sending — reset button so user can press again
         active = false;
         micBtn.classList.remove('recording');
-      };
+      });
 
       try { r.start(); }
       catch(err) {
