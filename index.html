@@ -843,6 +843,7 @@
             active = false;
             micBtn.classList.remove('recording');
             composer.value = ''; updateSend();
+            try { r.stop(); } catch(e) {}
             sendMsg(text);
           }
         }, 5000);
