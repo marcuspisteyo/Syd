@@ -832,27 +832,12 @@
     const MIC_ICON  = micBtn.innerHTML;
     const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
 
-    let prefix       = '';    // text already in box when recording starts (for append)
-    let accumulated  = '';    // transcript built during this session
+    let prefix      = '';
+    let accumulated = '';
     let silenceTimer = null;
     let pendingSend  = false;
-    let netRetries   = 0;     // silent retry counter for transient network errors
-    let retryTimer   = null;
-
-    function startRec() {
-      try {
-        rec.start();
-        micBtn.classList.add('recording');
-        micBtn.innerHTML = STOP_ICON;
-        micBtn.title = 'Stop recording';
-      } catch(err) {
-        console.warn('[Syd] rec.start() threw:', err.name, err.message);
-        showToast('Could not start microphone — try refreshing the page.');
-      }
-    }
 
     rec.onresult = e => {
-      netRetries = 0;  // connection confirmed good
       let transcript = '';
       for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
       accumulated = transcript;
@@ -865,12 +850,9 @@
     };
 
     rec.onend = () => {
-      clearTimeout(silenceTimer);
-      // If a network retry is queued, keep the button red and wait
-      if (retryTimer) return;
       micBtn.classList.remove('recording');
-      micBtn.innerHTML = MIC_ICON;
-      micBtn.title = 'Voice input';
+      micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
+      clearTimeout(silenceTimer);
       if (pendingSend && accumulated.trim()) {
         pendingSend = false;
         const text = (prefix ? prefix + ' ' + accumulated : accumulated).trim();
@@ -882,46 +864,23 @@
       }
     };
 
-    rec.onerror = e => {
-      console.warn('[Syd] Speech error:', e.error);
-      if (e.error === 'network' && micBtn.classList.contains('recording') && netRetries < 4) {
-        // Transient Edge WebSocket drop — silently restart on same instance after 800ms.
-        // Button stays red so the user isn't confused; no toast until all retries exhausted.
-        netRetries++;
-        retryTimer = setTimeout(() => {
-          retryTimer = null;
-          if (micBtn.classList.contains('recording')) startRec();
-        }, 800);
-        return;
-      }
-      // Hard stop — reset everything
-      clearTimeout(retryTimer); retryTimer = null; netRetries = 0;
-      clearTimeout(silenceTimer);
+    rec.onerror = () => {
       micBtn.classList.remove('recording');
-      micBtn.innerHTML = MIC_ICON;
-      micBtn.title = 'Voice input';
+      micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
+      clearTimeout(silenceTimer);
       pendingSend = false; prefix = ''; accumulated = '';
-      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-        showToast('Microphone access denied — please allow mic in your browser.');
-      } else if (e.error === 'audio-capture') {
-        showToast('No microphone detected.');
-      } else if (e.error === 'network') {
-        showToast('Voice recognition needs an internet connection.');
-      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
-        showToast('Voice error: ' + e.error);
-      }
     };
 
     micBtn.addEventListener('click', () => {
       if (micBtn.classList.contains('recording')) {
-        clearTimeout(retryTimer); retryTimer = null; netRetries = 0;
-        pendingSend = false;
-        rec.stop();
+        pendingSend = false; rec.stop();
       } else {
         prefix = composer.value.trim();
-        accumulated = ''; pendingSend = false; netRetries = 0;
+        accumulated = ''; pendingSend = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        startRec();
+        rec.start();
+        micBtn.classList.add('recording');
+        micBtn.innerHTML = STOP_ICON; micBtn.title = 'Stop recording';
       }
     });
   } else {
