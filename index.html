@@ -832,30 +832,36 @@
     const MIC_ICON  = micBtn.innerHTML;
     const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
 
-    let base         = '';   // whatever was in the box when mic was clicked
+    let base         = '';   // text already in box when mic clicked (for append)
+    let heard        = '';   // speech received THIS session (guards auto-send)
     let silenceTimer = null;
-    let autoSend     = false;
+    let pendingSend  = false;
 
     rec.onresult = e => {
       let t = '';
       for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      heard = t;
       composer.value = base ? base + ' ' + t : t;
       updateSend();
       clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => { autoSend = true; rec.stop(); }, 5000);
+      // only auto-send if we actually heard something this session
+      silenceTimer = setTimeout(() => {
+        if (heard.trim()) { pendingSend = true; rec.stop(); }
+      }, 5000);
     };
 
     rec.onend = () => {
       micBtn.classList.remove('recording');
       micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
       clearTimeout(silenceTimer);
-      if (autoSend && composer.value.trim()) {
-        autoSend = false; base = '';
+      if (pendingSend && heard.trim()) {
+        pendingSend = false;
         const text = composer.value.trim();
+        base = ''; heard = '';
         composer.value = ''; updateSend();
         sendMsg(text);
       } else {
-        autoSend = false; base = '';
+        base = ''; heard = '';
         // manual stop — text stays in box for editing
       }
     };
@@ -864,15 +870,15 @@
       micBtn.classList.remove('recording');
       micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
       clearTimeout(silenceTimer);
-      autoSend = false; base = '';
+      pendingSend = false; base = ''; heard = '';
     };
 
     micBtn.addEventListener('click', () => {
       if (micBtn.classList.contains('recording')) {
-        autoSend = false; rec.stop();
+        pendingSend = false; rec.stop();
       } else {
         base = composer.value.trim();
-        autoSend = false;
+        heard = ''; pendingSend = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         rec.start();
         micBtn.classList.add('recording');
