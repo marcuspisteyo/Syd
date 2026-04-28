@@ -832,12 +832,27 @@
     const MIC_ICON  = micBtn.innerHTML;
     const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
 
-    let prefix      = '';    // text already in box when recording starts (for append)
-    let accumulated = '';    // transcript built during this session
+    let prefix       = '';    // text already in box when recording starts (for append)
+    let accumulated  = '';    // transcript built during this session
     let silenceTimer = null;
     let pendingSend  = false;
+    let netRetries   = 0;     // silent retry counter for transient network errors
+    let retryTimer   = null;
+
+    function startRec() {
+      try {
+        rec.start();
+        micBtn.classList.add('recording');
+        micBtn.innerHTML = STOP_ICON;
+        micBtn.title = 'Stop recording';
+      } catch(err) {
+        console.warn('[Syd] rec.start() threw:', err.name, err.message);
+        showToast('Could not start microphone — try refreshing the page.');
+      }
+    }
 
     rec.onresult = e => {
+      netRetries = 0;  // connection confirmed good
       let transcript = '';
       for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
       accumulated = transcript;
@@ -850,10 +865,12 @@
     };
 
     rec.onend = () => {
+      clearTimeout(silenceTimer);
+      // If a network retry is queued, keep the button red and wait
+      if (retryTimer) return;
       micBtn.classList.remove('recording');
       micBtn.innerHTML = MIC_ICON;
       micBtn.title = 'Voice input';
-      clearTimeout(silenceTimer);
       if (pendingSend && accumulated.trim()) {
         pendingSend = false;
         const text = (prefix ? prefix + ' ' + accumulated : accumulated).trim();
@@ -861,18 +878,29 @@
         composer.value = ''; updateSend();
         sendMsg(text);
       } else {
-        // Manual stop — leave text in box, reset session state only
         prefix = ''; accumulated = '';
       }
     };
 
     rec.onerror = e => {
+      console.warn('[Syd] Speech error:', e.error);
+      if (e.error === 'network' && micBtn.classList.contains('recording') && netRetries < 4) {
+        // Transient Edge WebSocket drop — silently restart on same instance after 800ms.
+        // Button stays red so the user isn't confused; no toast until all retries exhausted.
+        netRetries++;
+        retryTimer = setTimeout(() => {
+          retryTimer = null;
+          if (micBtn.classList.contains('recording')) startRec();
+        }, 800);
+        return;
+      }
+      // Hard stop — reset everything
+      clearTimeout(retryTimer); retryTimer = null; netRetries = 0;
+      clearTimeout(silenceTimer);
       micBtn.classList.remove('recording');
       micBtn.innerHTML = MIC_ICON;
       micBtn.title = 'Voice input';
-      clearTimeout(silenceTimer);
       pendingSend = false; prefix = ''; accumulated = '';
-      console.warn('[Syd] Speech error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         showToast('Microphone access denied — please allow mic in your browser.');
       } else if (e.error === 'audio-capture') {
@@ -886,21 +914,14 @@
 
     micBtn.addEventListener('click', () => {
       if (micBtn.classList.contains('recording')) {
+        clearTimeout(retryTimer); retryTimer = null; netRetries = 0;
         pendingSend = false;
         rec.stop();
       } else {
         prefix = composer.value.trim();
-        accumulated = ''; pendingSend = false;
+        accumulated = ''; pendingSend = false; netRetries = 0;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        try {
-          rec.start();
-          micBtn.classList.add('recording');
-          micBtn.innerHTML = STOP_ICON;
-          micBtn.title = 'Stop recording';
-        } catch(err) {
-          console.warn('[Syd] rec.start() threw:', err.name, err.message);
-          showToast('Could not start microphone — try refreshing the page.');
-        }
+        startRec();
       }
     });
   } else {
