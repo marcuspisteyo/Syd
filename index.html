@@ -832,35 +832,31 @@
     const MIC_ICON  = micBtn.innerHTML;
     const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
 
-    let prefix      = '';
-    let accumulated = '';
+    let base         = '';   // whatever was in the box when mic was clicked
     let silenceTimer = null;
-    let pendingSend  = false;
+    let autoSend     = false;
 
     rec.onresult = e => {
-      let transcript = '';
-      for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
-      accumulated = transcript;
-      composer.value = prefix ? prefix + ' ' + transcript : transcript;
+      let t = '';
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      composer.value = base ? base + ' ' + t : t;
       updateSend();
       clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => {
-        if (accumulated.trim()) { pendingSend = true; rec.stop(); }
-      }, 5000);
+      silenceTimer = setTimeout(() => { autoSend = true; rec.stop(); }, 5000);
     };
 
     rec.onend = () => {
       micBtn.classList.remove('recording');
       micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
       clearTimeout(silenceTimer);
-      if (pendingSend && accumulated.trim()) {
-        pendingSend = false;
-        const text = (prefix ? prefix + ' ' + accumulated : accumulated).trim();
-        prefix = ''; accumulated = '';
+      if (autoSend && composer.value.trim()) {
+        autoSend = false; base = '';
+        const text = composer.value.trim();
         composer.value = ''; updateSend();
         sendMsg(text);
       } else {
-        prefix = ''; accumulated = '';
+        autoSend = false; base = '';
+        // manual stop — text stays in box for editing
       }
     };
 
@@ -868,15 +864,15 @@
       micBtn.classList.remove('recording');
       micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
       clearTimeout(silenceTimer);
-      pendingSend = false; prefix = ''; accumulated = '';
+      autoSend = false; base = '';
     };
 
     micBtn.addEventListener('click', () => {
       if (micBtn.classList.contains('recording')) {
-        pendingSend = false; rec.stop();
+        autoSend = false; rec.stop();
       } else {
-        prefix = composer.value.trim();
-        accumulated = ''; pendingSend = false;
+        base = composer.value.trim();
+        autoSend = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
         rec.start();
         micBtn.classList.add('recording');
