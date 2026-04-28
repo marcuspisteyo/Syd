@@ -875,14 +875,22 @@
 
     micBtn.addEventListener('click', () => {
       if (micBtn.classList.contains('recording')) {
-        pendingSend = false; rec.stop();
+        // abort() fires onend instantly (no audio-processing delay like stop())
+        // so a quick stop→start doesn't hit InvalidStateError on the next click
+        pendingSend = false;
+        try { rec.abort(); } catch(e) {}
       } else {
         base = composer.value.trim();
         heard = ''; pendingSend = false;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        rec.start();
-        micBtn.classList.add('recording');
-        micBtn.innerHTML = STOP_ICON; micBtn.title = 'Stop recording';
+        try {
+          rec.start();
+          micBtn.classList.add('recording');
+          micBtn.innerHTML = STOP_ICON; micBtn.title = 'Stop recording';
+        } catch(e) {
+          // still shutting down from last session — reset silently
+          base = ''; heard = '';
+        }
       }
     });
   } else {
