@@ -363,7 +363,9 @@
     .send-btn:disabled { background: var(--navy-5); color: var(--text-dim); cursor: not-allowed; }
     .mic-btn { background: var(--navy-4); border: 1px solid var(--border); color: var(--text-muted); }
     .mic-btn:hover { border-color: var(--border-red); color: var(--red); }
-    .mic-btn.recording { background: var(--red) !important; border-color: var(--red) !important; color: #fff !important; animation: micPulse 1.1s ease-in-out infinite; }
+    .mic-btn.recording  { background: var(--red) !important; border-color: var(--red) !important; color: #fff !important; animation: micPulse 1.1s ease-in-out infinite; }
+    .mic-btn.send-ready { background: linear-gradient(135deg,#e04040,var(--red)) !important; border-color: var(--red) !important; color: #fff !important; }
+    .mic-btn.send-ready:hover { box-shadow: 0 3px 12px rgba(255,87,88,0.35); }
     @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,87,88,.6);}50%{box-shadow:0 0 0 7px rgba(255,87,88,0);} }
 
     .voice-toggle-btn {
@@ -831,68 +833,58 @@
 
     const MIC_ICON  = micBtn.innerHTML;
     const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
+    const SEND_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
 
-    let base         = '';   // text already in box when mic clicked (for append)
-    let heard        = '';   // speech received THIS session (guards auto-send)
-    let silenceTimer = null;
-    let pendingSend  = false;
+    let recording = false;
+
+    // Syncs button appearance to current state — call after any state change
+    function syncBtn() {
+      if (recording) {
+        micBtn.classList.add('recording'); micBtn.classList.remove('send-ready');
+        micBtn.innerHTML = STOP_ICON; micBtn.title = 'Stop recording';
+      } else if (composer.value.trim()) {
+        micBtn.classList.remove('recording'); micBtn.classList.add('send-ready');
+        micBtn.innerHTML = SEND_ICON; micBtn.title = 'Send message';
+      } else {
+        micBtn.classList.remove('recording', 'send-ready');
+        micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
+      }
+    }
 
     rec.onresult = e => {
       let t = '';
       for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-      heard = t;
-      composer.value = base ? base + ' ' + t : t;
-      updateSend();
-      clearTimeout(silenceTimer);
-      // only auto-send if we actually heard something this session
-      silenceTimer = setTimeout(() => {
-        if (heard.trim()) { pendingSend = true; rec.stop(); }
-      }, 5000);
+      composer.value = t;
+      updateSend(); syncBtn();
     };
 
-    rec.onend = () => {
-      micBtn.classList.remove('recording');
-      micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
-      clearTimeout(silenceTimer);
-      if (pendingSend && heard.trim()) {
-        pendingSend = false;
-        const text = composer.value.trim();
-        base = ''; heard = '';
-        composer.value = ''; updateSend();
-        sendMsg(text);
-      } else {
-        base = ''; heard = '';
-        // manual stop — text stays in box for editing
-      }
-    };
-
-    rec.onerror = () => {
-      micBtn.classList.remove('recording');
-      micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
-      clearTimeout(silenceTimer);
-      pendingSend = false; base = ''; heard = '';
-    };
+    rec.onend = () => { recording = false; syncBtn(); };
+    rec.onerror = () => { recording = false; composer.value = ''; updateSend(); syncBtn(); };
 
     micBtn.addEventListener('click', () => {
-      if (micBtn.classList.contains('recording')) {
-        // abort() fires onend instantly (no audio-processing delay like stop())
-        // so a quick stop→start doesn't hit InvalidStateError on the next click
-        pendingSend = false;
+      if (recording) {
+        // Second press — stop recording, text stays in box, button → send
+        recording = false;
         try { rec.abort(); } catch(e) {}
-      } else {
-        base = composer.value.trim();
-        heard = ''; pendingSend = false;
+        syncBtn();
+      } else if (composer.value.trim()) {
+        // Send mode — fire the message, clear box, reset to mic
+        const text = composer.value.trim();
+        composer.value = ''; updateSend(); syncBtn();
         if (window.speechSynthesis) window.speechSynthesis.cancel();
-        try {
-          rec.start();
-          micBtn.classList.add('recording');
-          micBtn.innerHTML = STOP_ICON; micBtn.title = 'Stop recording';
-        } catch(e) {
-          // still shutting down from last session — reset silently
-          base = ''; heard = '';
-        }
+        sendMsg(text);
+      } else {
+        // Start recording
+        recording = true;
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        try { rec.start(); } catch(e) { recording = false; }
+        syncBtn();
       }
     });
+
+    // Keep button in sync when user types manually
+    composer.addEventListener('input', syncBtn);
+
   } else {
     micBtn.style.display = 'none';
   }
