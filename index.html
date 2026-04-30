@@ -364,6 +364,7 @@
     .mic-btn.send-ready { background: linear-gradient(135deg,#e04040,var(--red)) !important; border-color: var(--red) !important; color: #fff !important; }
     .mic-btn.send-ready:hover { box-shadow: 0 3px 12px rgba(255,87,88,0.35); }
     @keyframes micPulse { 0%,100%{box-shadow:0 0 0 0 rgba(255,87,88,.6);}50%{box-shadow:0 0 0 7px rgba(255,87,88,0);} }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     .voice-toggle-btn {
       height: 32px; padding: 0 0.65rem;
@@ -667,6 +668,7 @@
     appendMsg('bot', text);
     isWaiting = false;
     updateSend();
+    syncBtn();
     if (ttsEnabled && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       const utt = new SpeechSynthesisUtterance(text);
@@ -767,6 +769,11 @@
 
   function updateSend() { /* mic button handles send state via syncBtn() */ }
 
+  // Declared at module level so receiveBotMsg (and any other code) can call it.
+  // The real implementation is assigned below inside the SR block;
+  // this no-op fallback runs if the browser has no speech API.
+  let syncBtn = () => {};
+
   function showToast(msg) {
     const el = document.createElement('div');
     el.className = 'toast'; el.textContent = msg;
@@ -808,71 +815,105 @@
     }
   })();
 
-  // One persistent SR instance, created once on page load and reused every session.
-  // Re-creating the instance on every click forces Edge to reconnect its speech
-  // WebSocket each time (~15-30s delay). Single instance = connection stays warm.
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (SR) {
-    const rec = new SR();
-    rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US';
-
+  // ── MIC: MediaRecorder (instant start — no WebSocket, no warmup) ───────
+  // Captures raw audio locally. On stop, placeholder shows "Transcribing…"
+  // until a real STT endpoint (e.g. ElevenLabs) is wired in.
+  {
     const MIC_ICON  = micBtn.innerHTML;
     const STOP_ICON = `<svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor"><rect width="11" height="11" rx="2.5"/></svg>`;
     const SEND_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>`;
 
-    let recording = false;
+    let recording    = false;
+    let transcribing = false;
+    let mediaRecorder = null;
+    let audioChunks   = [];
 
-    // Syncs button appearance to current state — call after any state change
-    function syncBtn() {
+    syncBtn = function() {
       if (recording) {
         micBtn.classList.add('recording'); micBtn.classList.remove('send-ready');
         micBtn.innerHTML = STOP_ICON; micBtn.title = 'Stop recording';
+        micBtn.disabled = false;
+      } else if (transcribing) {
+        micBtn.classList.remove('recording', 'send-ready');
+        micBtn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:spin .8s linear infinite"><path d="M21 12a9 9 0 1 1-6.22-8.56"/></svg>`;
+        micBtn.title = 'Transcribing…';
+        micBtn.disabled = true;
       } else if (composer.value.trim()) {
-        micBtn.classList.remove('recording'); micBtn.classList.add('send-ready');
+        micBtn.classList.remove('recording', 'send-ready');
+        micBtn.classList.add('send-ready');
         micBtn.innerHTML = SEND_ICON; micBtn.title = 'Send message';
+        micBtn.disabled = false;
       } else {
         micBtn.classList.remove('recording', 'send-ready');
         micBtn.innerHTML = MIC_ICON; micBtn.title = 'Voice input';
+        micBtn.disabled = false;
       }
-    }
-
-    rec.onresult = e => {
-      let t = '';
-      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-      composer.value = t;
-      updateSend(); syncBtn();
     };
 
-    rec.onend = () => { recording = false; syncBtn(); };
-    // 'aborted' fires when we call rec.abort() manually — not a real error, don't wipe text
-    rec.onerror = e => { recording = false; if (e.error !== 'aborted') { composer.value = ''; updateSend(); } syncBtn(); };
-
-    micBtn.addEventListener('click', () => {
+    micBtn.addEventListener('click', async () => {
       if (recording) {
-        // Second press — stop recording, text stays in box, button → send
+        // ── STOP: end capture, onstop will handle the rest ──
         recording = false;
-        try { rec.abort(); } catch(e) {}
         syncBtn();
+        if (mediaRecorder?.state === 'recording') mediaRecorder.stop();
+
       } else if (composer.value.trim()) {
-        // Send mode — fire the message, clear box, reset to mic
+        // ── SEND: fire the message ──
         const text = composer.value.trim();
-        composer.value = ''; updateSend(); syncBtn();
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        composer.value = ''; syncBtn();
         sendMsg(text);
+
       } else {
-        // Start recording
-        recording = true;
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
-        try { rec.start(); } catch(e) { recording = false; }
-        syncBtn();
+        // ── START: request mic then begin recording ──
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioChunks = [];
+
+          mediaRecorder = new MediaRecorder(stream);
+
+          mediaRecorder.ondataavailable = e => {
+            if (e.data.size > 0) audioChunks.push(e.data);
+          };
+
+          mediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop()); // release mic light
+            transcribing = true;
+            composer.value = '';
+            composer.placeholder = 'Transcribing your audio…';
+            syncBtn();
+
+            // ── STT goes here (ElevenLabs / Whisper) ──────────────────
+            // const blob = new Blob(audioChunks, { type: 'audio/webm' });
+            // const text = await transcribeWithElevenLabs(blob);
+            // composer.value = text;
+            // ──────────────────────────────────────────────────────────
+
+            // Placeholder until STT is wired in
+            await new Promise(r => setTimeout(r, 1200)); // simulate API call
+            composer.placeholder = 'Ask Syd…';
+            composer.value = '';
+            transcribing = false;
+            syncBtn();
+            showToast('STT endpoint not connected yet — audio captured ✓');
+          };
+
+          recording = true;
+          syncBtn(); // button goes red here — instant
+          mediaRecorder.start();
+          console.log('[Syd] MediaRecorder started');
+
+        } catch (err) {
+          console.warn('[Syd] getUserMedia failed:', err.name, err.message);
+          showToast(
+            err.name === 'NotAllowedError'
+              ? 'Mic access denied — allow microphone in browser settings.'
+              : 'Could not access mic: ' + err.message
+          );
+        }
       }
     });
 
-    // Keep button in sync when user types manually
     composer.addEventListener('input', syncBtn);
-
-  } else {
-    micBtn.style.display = 'none';
   }
 
   // ── VOICE PICKER ─────────────────────────────────────
