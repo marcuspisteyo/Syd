@@ -381,6 +381,38 @@
     }
     .voice-toggle-btn.voice-off:hover { border-color: var(--border-red); color: var(--text-muted); }
 
+    /* ── SETUP MODAL ───────────────────────────────── */
+    .setup-overlay {
+      position: fixed; inset: 0; z-index: 900;
+      background: rgba(6,10,22,0.92);
+      display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    }
+    .setup-overlay.hidden { display: none; }
+    .setup-box {
+      background: var(--navy-3); border: 1px solid var(--border-red);
+      border-radius: 14px; padding: 1.75rem 1.5rem;
+      width: calc(100% - 2.5rem); max-width: 360px;
+      display: flex; flex-direction: column; gap: 0.85rem;
+    }
+    .setup-title { font-size: 0.88rem; font-weight: 600; color: var(--text); }
+    .setup-sub   { font-size: 0.72rem; color: var(--text-muted); line-height: 1.5; }
+    .setup-input {
+      width: 100%; background: var(--navy-5); border: 1px solid var(--border);
+      border-radius: 8px; padding: 0.55rem 0.8rem;
+      font-family: var(--sans); font-size: 0.74rem; color: var(--text);
+      outline: none; transition: border-color 0.2s;
+    }
+    .setup-input:focus { border-color: var(--border-red); }
+    .setup-input::placeholder { color: var(--text-dim); }
+    .setup-save {
+      width: 100%; padding: 0.6rem; border-radius: 8px; border: none;
+      background: linear-gradient(135deg,#e04040,var(--red));
+      color: #fff; font-family: var(--sans); font-size: 0.78rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.18s;
+    }
+    .setup-save:hover { opacity: 0.88; }
+
     .toast {
       position: fixed; bottom: 56px; left: 50%; transform: translateX(-50%);
       background: #1a0d0d; border: 1px solid rgba(255,87,88,0.3); color: var(--red);
@@ -519,12 +551,35 @@
     </div>
   </div>
 
+  <!-- SETUP MODAL — shown only when no API key is configured -->
+  <div class="setup-overlay hidden" id="setup-overlay">
+    <div class="setup-box">
+      <div class="setup-title">Connect Syd to OpenAI</div>
+      <div class="setup-sub">Enter your Azure OpenAI endpoint and API key. Saved locally in your browser — never sent to GitHub.</div>
+      <input class="setup-input" id="setup-endpoint" type="text" placeholder="https://your-resource.openai.azure.com/openai/v1" autocomplete="off" spellcheck="false">
+      <input class="setup-input" id="setup-key" type="password" placeholder="API key" autocomplete="off">
+      <button class="setup-save" id="setup-save">Save &amp; connect</button>
+    </div>
+  </div>
+
 </div>
 
-<script src="config.js"></script>
+<script src="config.js" onerror="console.log('[Syd] config.js not found, using localStorage')"></script>
 <script type="module">
   // ── CONFIG ───────────────────────────────────────────────────────────────
-  const cfg     = window.SYD_CONFIG?.openai || {};
+  // Priority: config.js (local dev) → localStorage (GitHub Pages / any browser)
+  const _stored = (() => { try { return JSON.parse(localStorage.getItem('syd_config') || '{}'); } catch(e) { return {}; } })();
+  const cfg = {
+    ...(window.SYD_CONFIG?.openai || {}),
+    apiKey:   (window.SYD_CONFIG?.openai?.apiKey?.includes('YOUR-KEY') ? '' : window.SYD_CONFIG?.openai?.apiKey) || _stored.apiKey || '',
+    endpoint: window.SYD_CONFIG?.openai?.endpoint || _stored.endpoint || '',
+    model:    window.SYD_CONFIG?.openai?.model    || _stored.model    || 'gpt-4o',
+    voice:    window.SYD_CONFIG?.openai?.voice    || _stored.voice    || 'nova',
+    ttsModel: window.SYD_CONFIG?.openai?.ttsModel || _stored.ttsModel || 'tts-1-hd',
+    sttDeployment: window.SYD_CONFIG?.openai?.sttDeployment || _stored.sttDeployment || 'whisper',
+    ttsDeployment: window.SYD_CONFIG?.openai?.ttsDeployment || _stored.ttsDeployment || 'tts',
+    apiVersion: window.SYD_CONFIG?.openai?.apiVersion || _stored.apiVersion || '2025-01-01-preview',
+  };
   const isAzure = !!(cfg.endpoint);
   const AV      = cfg.apiVersion || '2025-01-01-preview';
 
@@ -746,10 +801,40 @@
     }
   });
 
-  // ── STARTUP CHECK ────────────────────────────────────────────────────────
-  if (!cfg.apiKey || cfg.apiKey.includes('YOUR-KEY')) {
-    console.warn('[Syd] No API key found — add it to config.js');
-    showToast('Add your OpenAI key to config.js to get started.');
+  // ── SETUP MODAL ──────────────────────────────────────────────────────────
+  const setupOverlay  = document.getElementById('setup-overlay');
+  const setupEndpoint = document.getElementById('setup-endpoint');
+  const setupKey      = document.getElementById('setup-key');
+  const setupSaveBtn  = document.getElementById('setup-save');
+
+  function showSetup() {
+    setupEndpoint.value = cfg.endpoint || '';
+    setupKey.value      = '';
+    setupOverlay.classList.remove('hidden');
+    setupEndpoint.focus();
+  }
+
+  setupSaveBtn.addEventListener('click', () => {
+    const key = setupKey.value.trim();
+    const ep  = setupEndpoint.value.trim();
+    if (!key) { setupKey.focus(); return; }
+    localStorage.setItem('syd_config', JSON.stringify({
+      apiKey: key, endpoint: ep,
+      model: cfg.model, voice: cfg.voice,
+      ttsModel: cfg.ttsModel, sttDeployment: cfg.sttDeployment,
+      ttsDeployment: cfg.ttsDeployment, apiVersion: cfg.apiVersion,
+    }));
+    setupOverlay.classList.add('hidden');
+    // Apply immediately without reload
+    cfg.apiKey   = key;
+    cfg.endpoint = ep;
+    console.log('[Syd] Config saved to localStorage ✓');
+  });
+
+  // ── STARTUP CHECK ─────────────────────────────────────────────────────────
+  if (!cfg.apiKey) {
+    console.warn('[Syd] No API key — showing setup');
+    showSetup();
   } else {
     const mode = !isAzure ? 'OpenAI direct' : isCompatMode ? `Azure compat (${base})` : `Azure legacy (${base})`;
     console.log('[Syd] Config loaded ✓', mode);
