@@ -614,7 +614,20 @@
     return (data.text || '').trim();
   }
 
-  // ── ELEVENLABS TTS ────────────────────────────────────────────────────────
+  // ── BROWSER TTS FALLBACK ─────────────────────────────────────────────────
+  function browserSpeak(text) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'en-US';
+    // Pick the best available English voice
+    const voices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('en'));
+    const preferred = voices.find(v => /natural|premium|neural|google/i.test(v.name)) || voices[0];
+    if (preferred) utt.voice = preferred;
+    window.speechSynthesis.speak(utt);
+  }
+
+  // ── ELEVENLABS TTS (falls back to browser voice if out of credits) ────────
   async function speak(text) {
     if (!ttsEnabled || !text) return;
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -624,16 +637,20 @@
         headers: { 'xi-api-key': EL_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text,
-          model_id: 'eleven_turbo_v2_5',
+          model_id: 'eleven_multilingual_v2',
           voice_settings: { stability: 0.5, similarity_boost: 0.75 }
         })
       });
-      if (!res.ok) { console.warn('[Syd TTS]', res.status); return; }
+      if (res.status === 402) {
+        console.warn('[Syd TTS] ElevenLabs out of credits — using browser voice');
+        browserSpeak(text); return;
+      }
+      if (!res.ok) { console.warn('[Syd TTS]', res.status); browserSpeak(text); return; }
       const url = URL.createObjectURL(await res.blob());
       currentAudio = new Audio(url);
       currentAudio.play();
       currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; };
-    } catch (e) { console.warn('[Syd TTS]', e.message); }
+    } catch (e) { console.warn('[Syd TTS]', e.message); browserSpeak(text); }
   }
 
   // ── KILL AUDIO ON LEAVE ───────────────────────────────────────────────────
