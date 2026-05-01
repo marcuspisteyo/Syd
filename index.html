@@ -575,7 +575,7 @@
   // ── ELEVENLABS CONFIG ─────────────────────────────────────────────────────
   // Key: config.js (local dev) → localStorage (GitHub Pages)
   const _stored  = (() => { try { return JSON.parse(localStorage.getItem('syd_config') || '{}'); } catch(e) { return {}; } })();
-  const EL_KEY      = window.SYD_CONFIG?.elevenLabs?.apiKey  || _stored.elKey   || '';
+  const EL_KEY      = window.SYD_CONFIG?.elevenLabs?.apiKey  || _stored.elKey   || 'sk_8e07e3aac88a0ec6ec688f3523c52a1ec5cf2a741c0ae4a0';
   const EL_VOICE_ID = window.SYD_CONFIG?.elevenLabs?.voiceId || _stored.voiceId || '56bWURjYFHyYyVf490Dp';
   const EL_STT_URL  = 'https://api.elevenlabs.io/v1/speech-to-text';
   const EL_TTS_URL  = `https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE_ID}`;
