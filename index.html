@@ -275,6 +275,18 @@
 
     .path-label { font-size: 0.82rem; font-weight: 500; font-family: var(--sans); line-height: 1.3; position: relative; z-index: 1; }
 
+    .just-chat-link {
+      display: block; text-align: center;
+      font-size: 0.78rem; font-family: var(--sans);
+      color: var(--text-muted); margin-top: 0.9rem;
+      text-decoration: underline; text-underline-offset: 2px;
+      cursor: pointer; opacity: 0.65;
+      animation: fadeUp 0.7s 0.38s cubic-bezier(0.22,1,0.36,1) both;
+      transition: opacity 0.2s;
+    }
+    .just-chat-link:hover { opacity: 1; }
+    body.light .just-chat-link { color: #555; }
+
     /* ── CHAT VIEW ──────────────────────────────────── */
     #chat-view { flex: 1; display: none; flex-direction: column; height: 100%; }
     #chat-view.visible { display: flex; animation: fadeUp 0.4s ease both; }
@@ -497,7 +509,7 @@
   <div id="opening-card">
 
     <div class="opening-header">
-      <p class="syd-eyebrow">Use our voice agent</p>
+      <p class="syd-eyebrow">Continue the conversation<br>with our voice agent.</p>
     </div>
 
     <!-- Animated video logo avatar -->
@@ -522,6 +534,9 @@
         <span class="path-label">Organizational ROI Analysis</span>
       </button>
     </div>
+
+    <a class="just-chat-link" id="just-chat-link" href="#">No thanks, I'd like to just chat with Syd.</a>
+
   </div>
 
   <!-- CHAT VIEW -->
@@ -773,6 +788,19 @@
       await initSession();
       if (isConnected) sendMsg(card.dataset.message, false);
     });
+  });
+
+  // ── JUST CHAT LINK ────────────────────────────────────────────────────────
+  document.getElementById('just-chat-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    openingCard.classList.add('hidden');
+    setTimeout(() => {
+      openingCard.style.display = 'none';
+      chatView.classList.add('visible');
+      composer.focus();
+    }, 300);
+    await initSession();
+    if (isConnected) sendMsg("I'd like to just chat.", false);
   });
 
   // ── SEND MESSAGE ──────────────────────────────────────────────────────────
