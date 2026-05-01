@@ -653,10 +653,15 @@
     } catch (e) { console.warn('[Syd TTS]', e.message); browserSpeak(text); }
   }
 
-  // ── KILL AUDIO ON LEAVE ───────────────────────────────────────────────────
-  const killAudio = () => { if (currentAudio) { currentAudio.pause(); currentAudio = null; } };
+  // ── KILL AUDIO ────────────────────────────────────────────────────────────
+  // Stops both ElevenLabs audio element AND browser speechSynthesis fallback
+  const killAudio = () => {
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+  };
   window.addEventListener('beforeunload', killAudio);
-  window.addEventListener('pagehide', killAudio);
+  window.addEventListener('pagehide',     killAudio);
+  window.addEventListener('unload',       killAudio);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') killAudio();
   });
