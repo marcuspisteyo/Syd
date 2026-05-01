@@ -554,10 +554,9 @@
   <!-- SETUP MODAL — shown only when no API key is configured -->
   <div class="setup-overlay hidden" id="setup-overlay">
     <div class="setup-box">
-      <div class="setup-title">Connect Syd to OpenAI</div>
-      <div class="setup-sub">Enter your Azure OpenAI endpoint and API key. Saved locally in your browser — never sent to GitHub.</div>
-      <input class="setup-input" id="setup-endpoint" type="text" placeholder="https://your-resource.openai.azure.com/openai/v1" autocomplete="off" spellcheck="false">
-      <input class="setup-input" id="setup-key" type="password" placeholder="API key" autocomplete="off">
+      <div class="setup-title">Connect Syd</div>
+      <div class="setup-sub">Enter your ElevenLabs API key. Saved in your browser only — never pushed to GitHub.</div>
+      <input class="setup-input" id="setup-key" type="password" placeholder="ElevenLabs API key (sk_...)" autocomplete="off">
       <button class="setup-save" id="setup-save">Save &amp; connect</button>
     </div>
   </div>
@@ -566,60 +565,29 @@
 
 <script src="config.js" onerror="console.log('[Syd] config.js not found, using localStorage')"></script>
 <script type="module">
+  // ── PROVIDERS ────────────────────────────────────────────────────────────
+  // One line each to swap later:
+  //   CHAT_PROVIDER:  'botpress' | 'openai'
+  //   VOICE_PROVIDER: 'elevenlabs' | 'openai'
+  const CHAT_PROVIDER  = 'botpress';
+  const VOICE_PROVIDER = 'elevenlabs';
   // ── CONFIG ───────────────────────────────────────────────────────────────
-  // Priority: config.js (local dev) → localStorage (GitHub Pages / any browser)
-  const _stored = (() => { try { return JSON.parse(localStorage.getItem('syd_config') || '{}'); } catch(e) { return {}; } })();
-  const cfg = {
-    ...(window.SYD_CONFIG?.openai || {}),
-    apiKey:   (window.SYD_CONFIG?.openai?.apiKey?.includes('YOUR-KEY') ? '' : window.SYD_CONFIG?.openai?.apiKey) || _stored.apiKey || '',
-    endpoint: window.SYD_CONFIG?.openai?.endpoint || _stored.endpoint || '',
-    model:    window.SYD_CONFIG?.openai?.model    || _stored.model    || 'gpt-4o',
-    voice:    window.SYD_CONFIG?.openai?.voice    || _stored.voice    || 'nova',
-    ttsModel: window.SYD_CONFIG?.openai?.ttsModel || _stored.ttsModel || 'tts-1-hd',
-    sttDeployment: window.SYD_CONFIG?.openai?.sttDeployment || _stored.sttDeployment || 'whisper',
-    ttsDeployment: window.SYD_CONFIG?.openai?.ttsDeployment || _stored.ttsDeployment || 'tts',
-    apiVersion: window.SYD_CONFIG?.openai?.apiVersion || _stored.apiVersion || '2025-01-01-preview',
-  };
-  const isAzure = !!(cfg.endpoint);
-  const AV      = cfg.apiVersion || '2025-01-01-preview';
+  // ── ELEVENLABS CONFIG ─────────────────────────────────────────────────────
+  // Key: config.js (local dev) → localStorage (GitHub Pages)
+  const _stored  = (() => { try { return JSON.parse(localStorage.getItem('syd_config') || '{}'); } catch(e) { return {}; } })();
+  const EL_KEY      = window.SYD_CONFIG?.elevenLabs?.apiKey  || _stored.elKey   || '';
+  const EL_VOICE_ID = window.SYD_CONFIG?.elevenLabs?.voiceId || _stored.voiceId || '56bWURjYFHyYyVf490Dp';
+  const EL_STT_URL  = 'https://api.elevenlabs.io/v1/speech-to-text';
+  const EL_TTS_URL  = `https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE_ID}`;
 
-  // Azure AI Foundry / new-style endpoints end with /v1 — same URL structure
-  // as direct OpenAI (model in body, not in URL). Old Azure uses deployment-in-URL.
-  const base = (cfg.endpoint || 'https://api.openai.com/v1').replace(/\/$/, '');
-  const isCompatMode = !isAzure || /\/v\d+$/.test(base); // direct OpenAI or /v1 endpoint
-
-  // Auth: Azure uses api-key header; direct OpenAI uses Bearer token
-  const authH = (json = true) => {
-    const h = isAzure
-      ? { 'api-key': cfg.apiKey }
-      : { 'Authorization': `Bearer ${cfg.apiKey}` };
-    if (json) h['Content-Type'] = 'application/json';
-    return h;
-  };
-
-  // Endpoints — compat mode appends path to base directly (model goes in body)
-  //             old Azure mode puts deployment name in URL
-  const EP = {
-    chat: isCompatMode
-      ? `${base}/chat/completions`
-      : `${base}/openai/deployments/${cfg.model}/chat/completions?api-version=${AV}`,
-    stt: isCompatMode
-      ? `${base}/audio/transcriptions`
-      : `${base}/openai/deployments/${cfg.sttDeployment || 'whisper'}/audio/transcriptions?api-version=${AV}`,
-    tts: isCompatMode
-      ? `${base}/audio/speech`
-      : `${base}/openai/deployments/${cfg.ttsDeployment || 'tts'}/audio/speech?api-version=${AV}`,
-  };
-
-  // ── SYSTEM PROMPT ────────────────────────────────────────────────────────
-  // Keep this concise — under 500 tokens. Expand later once the voice flow is working.
-  const SYSTEM = `You are Syd, an AI assistant built by Pisteyo — an AI consulting firm that helps businesses implement AI strategy, tools, and automation. You're speaking with a potential client on the Pisteyo website. Your goal is to understand what they want to build with AI and guide them toward one of three outcomes: an AI Industry Intelligence Brief, an AI App Prototype, or an Organizational ROI Analysis. Be warm, concise, and professional. Keep every response to 2–3 sentences maximum. Do not help with topics unrelated to AI, business strategy, or Pisteyo's services.`;
-
+  // ── BOTPRESS CONFIG ───────────────────────────────────────────────────────
+  const WEBHOOK_ID = '4d37eadf-291a-4932-b267-0ce88481f2f4';
+  const BP_BASE    = `https://chat.botpress.cloud/${WEBHOOK_ID}`;
   // ── STATE ────────────────────────────────────────────────────────────────
-  let messages  = [{ role: 'system', content: SYSTEM }];
-  let isWaiting = false;
-  let ttsEnabled  = true;
-  let currentAudio = null;
+  let userKey = null, myUserId = null, convId = null;
+  let isConnected = false, isWaiting = false;
+  let pollTimer = null, seenIds = new Set(), sseActive = false;
+  let ttsEnabled = true, currentAudio = null;
 
   const openingCard = document.getElementById('opening-card');
   const chatView    = document.getElementById('chat-view');
@@ -628,33 +596,15 @@
   const micBtn      = document.getElementById('mic-btn');
   const pathTag     = document.getElementById('path-tag');
 
-  // ── OPENAI CHAT ──────────────────────────────────────────────────────────
-  async function chatWithSyd(text) {
-    messages.push({ role: 'user', content: text });
-    const body = { messages, max_tokens: 300, temperature: 0.7 };
-    if (isCompatMode) body.model = cfg.model || 'gpt-4o';
-
-    const res = await fetch(EP.chat, {
-      method: 'POST', headers: authH(), body: JSON.stringify(body)
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => '');
-      throw new Error(`${res.status}:${t.slice(0, 120)}`);
-    }
-    const data  = await res.json();
-    const reply = data.choices[0].message.content.trim();
-    messages.push({ role: 'assistant', content: reply });
-    return reply;
-  }
-
-  // ── OPENAI WHISPER STT ───────────────────────────────────────────────────
+  // ── ELEVENLABS STT ────────────────────────────────────────────────────────
   async function transcribe(blob) {
     const fd = new FormData();
     fd.append('file', blob, 'recording.webm');
-    if (isCompatMode) fd.append('model', cfg.sttDeployment || cfg.sttModel || 'whisper-1');
-
-    const res = await fetch(EP.stt, {
-      method: 'POST', headers: authH(false), body: fd
+    fd.append('model_id', 'scribe_v1');
+    const res = await fetch(EL_STT_URL, {
+      method: 'POST',
+      headers: { 'xi-api-key': EL_KEY },
+      body: fd
     });
     if (!res.ok) {
       const t = await res.text().catch(() => '');
@@ -664,17 +614,19 @@
     return (data.text || '').trim();
   }
 
-  // ── OPENAI TTS ───────────────────────────────────────────────────────────
+  // ── ELEVENLABS TTS ────────────────────────────────────────────────────────
   async function speak(text) {
     if (!ttsEnabled || !text) return;
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-
-    const body = { input: text, voice: cfg.voice || 'nova' };
-    if (isCompatMode) body.model = cfg.ttsDeployment || cfg.ttsModel || 'tts-1-hd';
-
     try {
-      const res = await fetch(EP.tts, {
-        method: 'POST', headers: authH(), body: JSON.stringify(body)
+      const res = await fetch(EL_TTS_URL, {
+        method: 'POST',
+        headers: { 'xi-api-key': EL_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          model_id: 'eleven_turbo_v2_5',
+          voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+        })
       });
       if (!res.ok) { console.warn('[Syd TTS]', res.status); return; }
       const url = URL.createObjectURL(await res.blob());
@@ -684,7 +636,100 @@
     } catch (e) { console.warn('[Syd TTS]', e.message); }
   }
 
-  // ── BOT REPLY RECEIVED ───────────────────────────────────────────────────
+  // ── KILL AUDIO ON LEAVE ───────────────────────────────────────────────────
+  const killAudio = () => { if (currentAudio) { currentAudio.pause(); currentAudio = null; } };
+  window.addEventListener('beforeunload', killAudio);
+  window.addEventListener('pagehide', killAudio);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') killAudio();
+  });
+
+  // ── BOTPRESS API ──────────────────────────────────────────────────────────
+  async function bpApi(method, path, body) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (userKey) headers['x-user-key'] = userKey;
+    let res;
+    try {
+      res = await fetch(`${BP_BASE}${path}`, {
+        method, headers,
+        body: body !== undefined ? JSON.stringify(body) : undefined
+      });
+    } catch (e) { throw new Error('NETWORK'); }
+    if (!res.ok) throw new Error(`HTTP_${res.status}`);
+    return res.json();
+  }
+
+  async function initSession() {
+    try {
+      const u = await bpApi('POST', '/users', {});
+      userKey = u.key; myUserId = u.user?.id || null;
+      const c = await bpApi('POST', '/conversations', {});
+      convId = c.conversation.id;
+      isConnected = true;
+      console.log('[Syd] Botpress session ready');
+      listenSSE();
+    } catch (e) {
+      console.error('[Syd] Session init failed:', e.message);
+      showToast('Could not connect — check your internet connection.');
+    }
+  }
+
+  async function listenSSE() {
+    try {
+      const res = await fetch(`${BP_BASE}/conversations/${convId}/listen`, {
+        headers: { 'x-user-key': userKey, 'Accept': 'text/event-stream' }
+      });
+      if (!res.ok) throw new Error('SSE failed');
+      sseActive = true;
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n'); buf = lines.pop();
+        for (const line of lines) {
+          if (line.startsWith('data: ')) onSSEEvent(line.slice(6));
+        }
+      }
+    } catch (e) {
+      sseActive = false;
+      startPolling();
+    }
+  }
+
+  function onSSEEvent(raw) {
+    try {
+      const ev = JSON.parse(raw);
+      if (
+        ev.type === 'message_created' &&
+        ev.data?.message?.userId !== myUserId &&
+        ev.data?.message?.payload?.type === 'text'
+      ) {
+        const msgId = ev.data.message.id;
+        if (seenIds.has(msgId)) return;
+        seenIds.add(msgId);
+        receiveBotMsg(ev.data.message.payload.text);
+      }
+    } catch (_) {}
+  }
+
+  function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+      if (!isWaiting || !convId) return;
+      try {
+        const d = await bpApi('GET', `/conversations/${convId}/messages`);
+        const msgs = (d.messages || [])
+          .filter(m => m.userId !== myUserId && m.payload?.type === 'text' && !seenIds.has(m.id))
+          .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+        for (const msg of msgs) { seenIds.add(msg.id); receiveBotMsg(msg.payload.text); }
+      } catch (e) { console.warn('[Syd] Poll:', e.message); }
+    }, 1500);
+  }
+
+  // ── RECEIVE BOT MESSAGE ───────────────────────────────────────────────────
   function receiveBotMsg(text) {
     removeTyping();
     appendMsg('bot', text);
@@ -693,17 +738,9 @@
     speak(text);
   }
 
-  // ── KILL AUDIO ON LEAVE ──────────────────────────────────────────────────
-  const killAudio = () => { if (currentAudio) { currentAudio.pause(); currentAudio = null; } };
-  window.addEventListener('beforeunload', killAudio);
-  window.addEventListener('pagehide', killAudio);
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') killAudio();
-  });
-
-  // ── PATH CARD CLICK ──────────────────────────────────────────────────────
+  // ── PATH CARD CLICK ───────────────────────────────────────────────────────
   document.querySelectorAll('.path-card').forEach(card => {
-    card.addEventListener('click', () => {
+    card.addEventListener('click', async () => {
       openingCard.classList.add('hidden');
       setTimeout(() => {
         openingCard.style.display = 'none';
@@ -711,11 +748,12 @@
         pathTag.textContent = card.dataset.path;
         composer.focus();
       }, 300);
-      sendMsg(card.dataset.message, false);
+      await initSession();
+      if (isConnected) sendMsg(card.dataset.message, false);
     });
   });
 
-  // ── SEND MESSAGE ─────────────────────────────────────────────────────────
+  // ── SEND MESSAGE ──────────────────────────────────────────────────────────
   async function sendMsg(text, showBubble = true) {
     if (!text.trim() || isWaiting) return;
     killAudio();
@@ -727,19 +765,15 @@
     showTyping();
     isWaiting = true;
     syncBtn();
-
+    if (!sseActive) startPolling();
     try {
-      const reply = await chatWithSyd(text);
-      receiveBotMsg(reply);
+      await bpApi('POST', '/messages', {
+        conversationId: convId,
+        payload: { type: 'text', text }
+      });
     } catch (e) {
-      removeTyping();
-      isWaiting = false;
-      syncBtn();
-      console.error('[Syd]', e.message);
-      const hint = e.message.startsWith('401') ? 'check your API key in config.js.'
-                 : e.message.startsWith('404') ? 'model or deployment not found — check config.js.'
-                 : 'try again.';
-      showToast('Could not reach Syd — ' + hint);
+      removeTyping(); isWaiting = false; syncBtn();
+      showToast('Send failed — try again.');
     }
   }
 
@@ -802,43 +836,35 @@
   });
 
   // ── SETUP MODAL ──────────────────────────────────────────────────────────
-  const setupOverlay  = document.getElementById('setup-overlay');
-  const setupEndpoint = document.getElementById('setup-endpoint');
-  const setupKey      = document.getElementById('setup-key');
-  const setupSaveBtn  = document.getElementById('setup-save');
+  // ── SETUP MODAL ───────────────────────────────────────────────────────────
+  const setupOverlay = document.getElementById('setup-overlay');
+  const setupKey     = document.getElementById('setup-key');
+  const setupSaveBtn = document.getElementById('setup-save');
 
   function showSetup() {
-    setupEndpoint.value = cfg.endpoint || '';
-    setupKey.value      = '';
+    setupKey.value = '';
     setupOverlay.classList.remove('hidden');
-    setupEndpoint.focus();
+    setTimeout(() => setupKey.focus(), 100);
   }
 
   setupSaveBtn.addEventListener('click', () => {
     const key = setupKey.value.trim();
-    const ep  = setupEndpoint.value.trim();
     if (!key) { setupKey.focus(); return; }
-    localStorage.setItem('syd_config', JSON.stringify({
-      apiKey: key, endpoint: ep,
-      model: cfg.model, voice: cfg.voice,
-      ttsModel: cfg.ttsModel, sttDeployment: cfg.sttDeployment,
-      ttsDeployment: cfg.ttsDeployment, apiVersion: cfg.apiVersion,
-    }));
+    const stored = JSON.parse(localStorage.getItem('syd_config') || '{}');
+    stored.elKey = key;
+    localStorage.setItem('syd_config', JSON.stringify(stored));
     setupOverlay.classList.add('hidden');
-    // Apply immediately without reload
-    cfg.apiKey   = key;
-    cfg.endpoint = ep;
-    console.log('[Syd] Config saved to localStorage ✓');
+    // Reload so all EL_KEY references pick up the new value
+    window.location.reload();
   });
 
   // ── STARTUP CHECK ─────────────────────────────────────────────────────────
-  if (!cfg.apiKey) {
-    console.warn('[Syd] No API key — showing setup');
+  if (!EL_KEY) {
+    console.warn('[Syd] No ElevenLabs key — showing setup');
     showSetup();
   } else {
-    const mode = !isAzure ? 'OpenAI direct' : isCompatMode ? `Azure compat (${base})` : `Azure legacy (${base})`;
-    console.log('[Syd] Config loaded ✓', mode);
-    console.log('[Syd] Endpoints →', EP);
+    console.log('[Syd] ElevenLabs ready ✓  voice:', EL_VOICE_ID);
+    console.log('[Syd] Botpress webhook:', WEBHOOK_ID);
   }
 
   // ── MIC: MediaRecorder (instant start — no WebSocket, no warmup) ───────
