@@ -524,11 +524,16 @@
 <script src="config.js"></script>
 <script type="module">
   // ── CONFIG ───────────────────────────────────────────────────────────────
-  const cfg    = window.SYD_CONFIG?.openai || {};
+  const cfg     = window.SYD_CONFIG?.openai || {};
   const isAzure = !!(cfg.endpoint);
   const AV      = cfg.apiVersion || '2025-01-01-preview';
 
-  // Auth headers — Azure uses api-key, direct OpenAI uses Bearer token
+  // Azure AI Foundry / new-style endpoints end with /v1 — same URL structure
+  // as direct OpenAI (model in body, not in URL). Old Azure uses deployment-in-URL.
+  const base = (cfg.endpoint || 'https://api.openai.com/v1').replace(/\/$/, '');
+  const isCompatMode = !isAzure || /\/v\d+$/.test(base); // direct OpenAI or /v1 endpoint
+
+  // Auth: Azure uses api-key header; direct OpenAI uses Bearer token
   const authH = (json = true) => {
     const h = isAzure
       ? { 'api-key': cfg.apiKey }
@@ -537,17 +542,18 @@
     return h;
   };
 
-  // API endpoints — auto-switches between Azure and direct OpenAI
+  // Endpoints — compat mode appends path to base directly (model goes in body)
+  //             old Azure mode puts deployment name in URL
   const EP = {
-    chat: isAzure
-      ? `${cfg.endpoint}/openai/deployments/${cfg.model}/chat/completions?api-version=${AV}`
-      : 'https://api.openai.com/v1/chat/completions',
-    stt: isAzure
-      ? `${cfg.endpoint}/openai/deployments/${cfg.sttDeployment || 'whisper'}/audio/transcriptions?api-version=${AV}`
-      : 'https://api.openai.com/v1/audio/transcriptions',
-    tts: isAzure
-      ? `${cfg.endpoint}/openai/deployments/${cfg.ttsDeployment || 'tts'}/audio/speech?api-version=${AV}`
-      : 'https://api.openai.com/v1/audio/speech',
+    chat: isCompatMode
+      ? `${base}/chat/completions`
+      : `${base}/openai/deployments/${cfg.model}/chat/completions?api-version=${AV}`,
+    stt: isCompatMode
+      ? `${base}/audio/transcriptions`
+      : `${base}/openai/deployments/${cfg.sttDeployment || 'whisper'}/audio/transcriptions?api-version=${AV}`,
+    tts: isCompatMode
+      ? `${base}/audio/speech`
+      : `${base}/openai/deployments/${cfg.ttsDeployment || 'tts'}/audio/speech?api-version=${AV}`,
   };
 
   // ── SYSTEM PROMPT ────────────────────────────────────────────────────────
@@ -571,7 +577,7 @@
   async function chatWithSyd(text) {
     messages.push({ role: 'user', content: text });
     const body = { messages, max_tokens: 300, temperature: 0.7 };
-    if (!isAzure) body.model = cfg.model || 'gpt-4o';
+    if (isCompatMode) body.model = cfg.model || 'gpt-4o';
 
     const res = await fetch(EP.chat, {
       method: 'POST', headers: authH(), body: JSON.stringify(body)
@@ -590,7 +596,7 @@
   async function transcribe(blob) {
     const fd = new FormData();
     fd.append('file', blob, 'recording.webm');
-    if (!isAzure) fd.append('model', cfg.sttModel || 'whisper-1');
+    if (isCompatMode) fd.append('model', cfg.sttDeployment || cfg.sttModel || 'whisper-1');
 
     const res = await fetch(EP.stt, {
       method: 'POST', headers: authH(false), body: fd
@@ -609,7 +615,7 @@
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
     const body = { input: text, voice: cfg.voice || 'nova' };
-    if (!isAzure) body.model = cfg.ttsModel || 'tts-1-hd';
+    if (isCompatMode) body.model = cfg.ttsDeployment || cfg.ttsModel || 'tts-1-hd';
 
     try {
       const res = await fetch(EP.tts, {
@@ -745,11 +751,9 @@
     console.warn('[Syd] No API key found — add it to config.js');
     showToast('Add your OpenAI key to config.js to get started.');
   } else {
-    console.log('[Syd] Config loaded ✓', isAzure ? `Azure (${cfg.endpoint || 'endpoint missing'})` : 'OpenAI direct');
-    if (isAzure && !cfg.endpoint) {
-      console.warn('[Syd] Azure key detected but endpoint is empty — fill in config.js → endpoint');
-      showToast('Azure key detected — add your endpoint to config.js');
-    }
+    const mode = !isAzure ? 'OpenAI direct' : isCompatMode ? `Azure compat (${base})` : `Azure legacy (${base})`;
+    console.log('[Syd] Config loaded ✓', mode);
+    console.log('[Syd] Endpoints →', EP);
   }
 
   // ── MIC: MediaRecorder (instant start — no WebSocket, no warmup) ───────
